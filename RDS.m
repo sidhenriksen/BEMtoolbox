@@ -1,4 +1,4 @@
-classdef RDS
+classdef RDS < StimulusGenerator
     
     % Default properties
     properties

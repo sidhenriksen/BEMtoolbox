@@ -1,0 +1,11 @@
+function bem = load_bootstrap(bem)
+
+    files = what(bem.bootstrap_dir);
+    mat_files = files.mat;
+    
+    id = bem.get_identifier();
+    
+    if any(mat_files,[id,'.mat']);
+        fprintf(
+    end
+end
