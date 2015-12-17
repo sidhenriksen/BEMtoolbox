@@ -22,7 +22,7 @@ function bem = add_subunit(bem,varargin)
     end
 
     
-    sub_k = bem.n_subunits+1;
+    
     bem.n_subunits = bem.n_subunits+1;
     
     if isempty(fieldnames(bem.subunits));
@@ -41,14 +41,16 @@ function bem = add_subunit(bem,varargin)
         warned = 0;
         if ~isempty(fieldnames(bem.subunits));
             if isfield(bem.subunits(1).rf_params.left,'x0')
-                warning('No RF centre specified; using centre from first subunit');
+                if ~bem.silent
+                    warning('No RF centre specified; using centre from first subunit');
+                end
                 warned = 1;
             else
                 error('No RF centres found. This is not supposed to happen.')
             end
 
             if isfield(bem.subunits(1).rf_params.left,'y0')
-                if ~warned;
+                if ~warned && ~bem.silent;
                     warning('No RF centre specified; using centre from first subunit');
                 end
             else
@@ -58,7 +60,9 @@ function bem = add_subunit(bem,varargin)
         else
             bem.subunits(1) = struct();
             bem = bem.set_centers();
-            warning('No RF centres specified; using random centres');
+            if ~bem.silent
+                warning('No RF centres specified; using random centres');
+            end
         end
 
         x0_L = bem.subunits(1).rf_params.left.x0;
@@ -86,8 +90,8 @@ function bem = add_subunit(bem,varargin)
     [X,Y] = meshgrid(bem.x,bem.y);
 
 
-    phi_L = bem.dphi/2;
-    phi_R = -bem.dphi/2;
+    phi_L = -bem.dphi/2;
+    phi_R = bem.dphi/2;
 
     rf.left.phi = rf.left.phi + phi_L;
     rf.left.x0 = x0_L;

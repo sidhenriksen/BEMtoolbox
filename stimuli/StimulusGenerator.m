@@ -153,6 +153,22 @@ classdef StimulusGenerator
             
         end
         
+        function fig=display_stimulus(generator);
+            
+            [L,R] = generate(generator);
+            fig=figure(); colormap('gray')
+            cmin = min([L(:);R(:)]);
+            cmax = max([L(:);R(:)]);
+            subplot(1,2,1);
+            imagesc(L)
+            set(gca,'clim',[cmin,cmax])
+            
+            subplot(1,2,2);
+            imagesc(R)
+            set(gca,'clim',[cmin,cmax]);
+            
+        end
+        
     end
     
 end

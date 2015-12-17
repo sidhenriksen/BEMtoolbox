@@ -32,6 +32,8 @@ classdef BEMunit
         subunits=struct();
         
         temporal_kernel='none';
+
+        silent = 0;
         
     end
     
@@ -58,9 +60,9 @@ classdef BEMunit
         bem = add_subunit(bem,varargin);
         bem = modify_subunit(bem,k_sub,varargin);
         bem = update(bem);
-        bem = load_bootstrap(bem);
+        [bem,big_bem] = load_bootstrap(bem,generator);
         
-        C = simulate_spatial(bem,generator,n_frames);
+        C = simulate_spatial(bem,generator,n_frames,bootstrap_mode);
         C = simulate_spatiotemporal(bem,generator,n_frames,duration,bootstrap_mode);
         
         
@@ -187,7 +189,7 @@ classdef BEMunit
             bem = bem.update();
         end
         
-        function [cc_idx,ccf] = get_ccf(bem,k_sub)
+        function [cc_dx,ccf] = get_ccf(bem,k_sub)
             % Get cross-correlation function of the kth subunit.
             % Usage: ccf = bem.get_ccf(k);
             % k: index of subunit
@@ -203,9 +205,10 @@ classdef BEMunit
             xR = R(max_idx,:);
 
             % cross-correlation function
-            ccf=conv(xL,xR(end:-1:1));
+            ccf=conv(xL(end:-1:1),xR);
             cc_idx=round(length(xL)/2+1):round(length(xL)*1.5);
-            ccf = ccf(cc_idx);                        
+            cc_dx = (cc_idx-median(cc_idx))*bem.deg_per_pixel;
+            ccf = ccf(cc_idx);
         end
         
 
@@ -258,11 +261,11 @@ classdef BEMunit
                 bem.y0 = (rand-0.5)*0.1*y_max;
             end
 
-            x0_L = bem.x0 + bem.dx/2;
-            x0_R = bem.x0 - bem.dx/2;
+            x0_L = bem.x0 - bem.dx/2;
+            x0_R = bem.x0 + bem.dx/2;
 
-            y0_L = bem.y0 + bem.dy/2;
-            y0_R = bem.y0 - bem.dy/2;
+            y0_L = bem.y0 - bem.dy/2;
+            y0_R = bem.y0 + bem.dy/2;
             
             for j = 1:length(bem.subunits);
                 bem.subunits(j).rf_params.left.x0 = x0_L;
@@ -275,6 +278,121 @@ classdef BEMunit
         end
         
                 
+        
+        
+        function save_bootstrap(bem,generator)
+            % Saves the computed monocular responses (pre-temporal
+            % filtering) to a file with a unique identifier for this model
+            % + stimulus. Will extend the file if it already exists.,
+            % Usage: bem.save_bootstrap(generator);
+            % generator: a stimulus generator object
+            
+            bem_id = bem.get_identifier();
+            stim_id = generator.get_identifier();
+            
+            % unique ID for bem + stim pairing
+            idx_name = [num2str(bem_id),'.idx'];
+            mat_name = [num2str(bem_id),'.mat'];
+            
+            idx_file = [bem.bootstrap_dir,'/',idx_name];
+            mat_file = [bem.bootstrap_dir,'/',mat_name];
+            
+            
+            % If there already exists a bem_index file then we want to append
+            % it with the stim_id (but only if it doesn't already exist).
+            % If it already exists then we shouldn't do anything.            
+            if exist(idx_file,'file');
+                fid = fopen(idx_file,'r');
+                stim_index = textscan(fid,'%s'); 
+                stim_index = stim_index{1};
+                stim_match = strcmp(stim_index,num2str(stim_id));
+                if ~any(stim_match);
+                    stim_index{length(stim_index)+1} = num2str(stim_id);
+                end
+            else
+                stim_index = {num2str(stim_id)};
+            end                        
+                
+            
+            existing_bootstrap_file = bem.check_bootstrap(generator);
+            % If there is an existing bootstrap file then we want to extend
+            % it rather than override it.
+            if existing_bootstrap_file
+                
+                fprintf('Found file
+                A = load(mat_file); big_bem = A.big_bem;
+                bstrap_bem = big_bem.(id2string(stim_id)).bem;
+                
+                % merge the bstrap_bem and our current bem
+                for k = 1:bem.n_subunits
+                    current_bem_id = get_identifier(bem,k);
+                    match = 0;
+                    for j = 1:length(bstrap_bem.subunits);
+                        bstrap_id = get_identifier(bstrap_bem,j);
+                        if bstrap_id == current_bem_id;
+                            match = j;
+                        end
+
+                    end
+
+                    assert(match > 0,'No matching subunit found. This is likely a bug.');
+
+                    V_L = bem.subunits(k).V_L;
+                    V_R = bem.subunits(k).V_R;
+
+                    bstrap_bem.subunits(match).V_L = [bstrap_bem.subunits(match).V_L,V_L];
+                    bstrap_bem.subunits(match).V_R = [bstrap_bem.subunits(match).V_R,V_R];                                        
+                end
+                bem = bstrap_bem;                       
+            else            
+                big_bem.(id2string(stim_id)).generator = generator;
+                big_bem.(id2string(stim_id)).bem = bem;
+            end
+            fprintf('Saving file... ')
+            
+            save(mat_file,'big_bem')
+            
+            fid=fopen(idx_file,'w');
+            fprintf(fid,'%s\n',stim_index{:});
+            fclose(fid);
+            
+            fprintf('Done.\n');
+            fclose('all');
+        end
+        
+        
+        function bool = check_bootstrap(bem,generator);
+            % Method to check whether the current model/stimulus
+            % combination has already been bootstrapped
+            % Returns a 1 if yes, a 0 if no. 
+            % Usage: bool = bem.check_bootstrap(generator);
+            
+            bool = 0;
+            
+            bem_id = bem.get_identifier();
+            stim_id = generator.get_identifier();
+            
+            % unique ID for bem + stim pairing
+            idx_name = [num2str(bem_id),'.idx'];                        
+            idx_file = [bem.bootstrap_dir,'/',idx_name];
+            
+            if exist(idx_file,'file');
+                fid = fopen(idx_file,'r');
+                stim_index = textscan(fid,'%s'); 
+                stim_index = stim_index{1};
+                stim_match = strcmp(stim_index,num2str(stim_id));
+                
+                bool = any(stim_match);
+            end                       
+            
+        end
+
+        
+        
+        
+    end
+
+    methods (Hidden)
         function id = get_identifier(bem,ks)
             % This method will return a unique identifier
             % based on relevant RF properties for bootstrap resampling.            
@@ -292,29 +410,30 @@ classdef BEMunit
             % sensitive to phase information (this is because
             % rms(x)==rms(-x)).
             
-            id=0;
+            bem_props = {'dim','dx','dy','Nx','Ny','deg_per_pixel'};
+            sub_props = {'sx','sy','f','rf_type','phi'};            
             
-            if nargin ~= 2
-                ks = 1:bem.n_subunits;
+            all_props = [];
+            for prop = 1:length(bem_props);
+                current_prop = num2str(bem.(bem_props{prop}));
+                all_props = [all_props,current_prop];
             end
-               
+            
+            if nargin < 2
+                ks = 1:bem.n_subunits;
+            end               
             
             for j = ks
-                L = bem.subunits(j).L;
-                R = bem.subunits(j).R;
-                ccf = get_ccf(bem,j); % cross-correlation function
                 
-                id = id+rms(L(:)+min(L(:))) + rms(R(:)+min(R(:))) + rms(ccf+min(ccf(:)));
+                for prop = 1:length(sub_props)                    left_prop = num2str(bem.subunits(j).rf_params.left.(sub_props{prop}));
+                    right_prop = num2str(bem.subunits(j).rf_params.right.(sub_props{prop}));
+                                        
+                    all_props = [all_props,left_prop,right_prop];
+                end
             end
+
+            id = stringhash(all_props);
             
         end
-        
-        function save_bootstrap(bem)
-            
-    
-        end
-        
-        
-        
     end
 end

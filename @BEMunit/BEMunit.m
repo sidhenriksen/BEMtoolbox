@@ -32,6 +32,12 @@ classdef BEMunit
         subunits=struct();
         
         temporal_kernel='none';
+        tk=struct('tau',[],'omega',[],'alpha',[],'t_phi',[],'t0',[]);
+        
+
+        silent = 0;
+        
+        outputNL = @(x)(x);
         
     end
     
@@ -47,24 +53,32 @@ classdef BEMunit
         bootstrap_loaded=false;
         toolbox_dir;
         
+        norm_constants=struct();
+        
     end
     
     properties (Hidden)
         memory_threshold=5e9; % in bytes; currently 5GB.
+        seed_list=[]; % this is for bootstrap_mode
     end
     
+    % =======================================================
+    % ===== These methods are defined in separate files =====
     methods
-        % These methods are defined in separate files
+        
         bem = add_subunit(bem,varargin);
         bem = modify_subunit(bem,k_sub,varargin);
         bem = update(bem);
-        bem = load_bootstrap(bem);
+        [bem,big_bem] = load_bootstrap(bem,generator);
+        save_bootstrap(bem,generator); 
         
-        C = simulate_spatial(bem,generator,n_frames);
-        C = simulate_spatiotemporal(bem,generator,n_frames,duration,bootstrap_mode);
+        C = simulate_spatial(bem,generator,n_frames,bootstrap_mode,seed_list);
+        C = simulate_spatiotemporal(bem,generator,n_frames,duration,bootstrap_mode,seed_list);
         
         
     end
+    % =========================================================
+    
     
     methods
         
@@ -80,11 +94,9 @@ classdef BEMunit
             
             % it 'init' is set to false, don't initialise to a standard BEM
             % unit. Default is to initialise a standard BEM unit.
-            if bem.init
-                
+            if bem.init                
                 bem = add_subunit(bem);
-                bem = add_subunit(bem,'L_phi',pi/2,'R_phi',pi/2);
-                
+                bem = add_subunit(bem,'L_phi',pi/2,'R_phi',pi/2);                
             end
 
             % Get the full path of the BEMtoolbox
@@ -93,7 +105,7 @@ classdef BEMunit
             bem.toolbox_dir=BEMunit_dir(1:stop_idx);
             
             % This is where we save the data
-            bem.bootstrap_dir=[bem.toolbox_dir,'/.data/'];            
+            bem.bootstrap_dir=[bem.toolbox_dir,'/.data/'];   
             
         end
         
@@ -156,10 +168,19 @@ classdef BEMunit
                     end
 
                     subplot(2,1,2);
-                    for j = 1:bem.n_subunits;
-                        % Do something
+                    t2 = linspace(-0.5,0.5,301);
+                    t_c = median(t2);
+                    rf = bem.subunits(1).rf_params;
+                    switch bem.temporal_kernel
+                        case 'gaussian'
+                            tk=temporal_gaussian(t2,t_c,rf.left);                        
 
+                        case 'gamma-cosine'
+                            tk=gamma_cosine(t2,t_c,rf.left);
+                
                     end
+                    plot(t2,tk,'k -','linewidth',3);
+                    
                 end
                 case '1d'
                     % Plot 1d RF shere...
@@ -187,7 +208,7 @@ classdef BEMunit
             bem = bem.update();
         end
         
-        function [cc_idx,ccf] = get_ccf(bem,k_sub)
+        function [cc_dx,ccf] = get_ccf(bem,k_sub)
             % Get cross-correlation function of the kth subunit.
             % Usage: ccf = bem.get_ccf(k);
             % k: index of subunit
@@ -203,12 +224,12 @@ classdef BEMunit
             xR = R(max_idx,:);
 
             % cross-correlation function
-            ccf=conv(xL,xR(end:-1:1));
+            ccf=conv(xL(end:-1:1),xR);
             cc_idx=round(length(xL)/2+1):round(length(xL)*1.5);
-            ccf = ccf(cc_idx);                        
+            cc_dx = (cc_idx-median(cc_idx))*bem.deg_per_pixel;
+            ccf = ccf(cc_idx);
         end
         
-
             
     end
     
@@ -244,6 +265,15 @@ classdef BEMunit
             rf_params.left=rf_params_both;
             rf_params.right=rf_params_both;
        end
+       
+       function tk = default_tk(~);
+           tk.alpha=2.5;
+           tk.omega=8.3;
+           tk.tau=0.015;
+           tk.t_phi=-pi/5;
+           tk.t0=0.03;
+           
+       end
     end
     
     methods (Access=private)
@@ -258,11 +288,11 @@ classdef BEMunit
                 bem.y0 = (rand-0.5)*0.1*y_max;
             end
 
-            x0_L = bem.x0 + bem.dx/2;
-            x0_R = bem.x0 - bem.dx/2;
+            x0_L = bem.x0 - bem.dx/2;
+            x0_R = bem.x0 + bem.dx/2;
 
-            y0_L = bem.y0 + bem.dy/2;
-            y0_R = bem.y0 - bem.dy/2;
+            y0_L = bem.y0 - bem.dy/2;
+            y0_R = bem.y0 + bem.dy/2;
             
             for j = 1:length(bem.subunits);
                 bem.subunits(j).rf_params.left.x0 = x0_L;
@@ -275,6 +305,19 @@ classdef BEMunit
         end
         
                 
+        
+        
+        
+        
+        
+       
+
+        
+        
+        
+    end
+
+    methods (Hidden)
         function id = get_identifier(bem,ks)
             % This method will return a unique identifier
             % based on relevant RF properties for bootstrap resampling.            
@@ -292,29 +335,109 @@ classdef BEMunit
             % sensitive to phase information (this is because
             % rms(x)==rms(-x)).
             
-            id=0;
+            bem_props = {'dim','dx','dy','Nx','Ny','deg_per_pixel'};
+            sub_props = {'sx','sy','f','rf_type','phi'};            
             
-            if nargin ~= 2
-                ks = 1:bem.n_subunits;
+            all_props = [];
+            for prop = 1:length(bem_props);
+                current_prop = num2str(bem.(bem_props{prop}));
+                all_props = [all_props,current_prop];
             end
-               
+            
+            if nargin < 2
+                ks = 1:bem.n_subunits;
+            end               
             
             for j = ks
-                L = bem.subunits(j).L;
-                R = bem.subunits(j).R;
-                ccf = get_ccf(bem,j); % cross-correlation function
                 
-                id = id+rms(L(:)+min(L(:))) + rms(R(:)+min(R(:))) + rms(ccf+min(ccf(:)));
+                for prop = 1:length(sub_props)                    left_prop = num2str(bem.subunits(j).rf_params.left.(sub_props{prop}));
+                    right_prop = num2str(bem.subunits(j).rf_params.right.(sub_props{prop}));
+                                        
+                    all_props = [all_props,left_prop,right_prop];
+                end
             end
+
+            id = stringhash(all_props);
             
         end
-        
-        function save_bootstrap(bem)
-            
     
-        end
-        
-        
-        
+
+         function bool = check_bootstrap(bem,generator);
+            % Method to check whether the current model/stimulus
+            % combination has already been bootstrapped
+            % Returns a 1 if yes, a 0 if no. 
+            % Usage: bool = bem.check_bootstrap(generator);
+            
+            bool = 0;
+            
+            bem_id = bem.get_identifier();
+            stim_id = generator.get_identifier();
+            
+            % unique ID for bem + stim pairing
+            idx_name = [num2str(bem_id),'.idx'];                        
+            idx_file = [bem.bootstrap_dir,'/',idx_name];
+            
+            if exist(idx_file,'file');
+                fid = fopen(idx_file,'r');
+                stim_index = textscan(fid,'%s'); 
+                stim_index = stim_index{1};
+                stim_match = strcmp(stim_index,num2str(stim_id));
+                
+                bool = any(stim_match);
+            end                       
+            
+         end
+         
+         function bem = compute_normalization_constant(bem,generator,N,bootstrap_mode)
+             
+             if nargin < 3
+                % number of frames to estimate your normalisation constant
+                % from
+                N = 2500; 
+             else
+                 if isempty(N);
+                     N = 2500;
+                 end
+             end
+             
+             if nargin < 4
+                 bootstrap_mode = 0;                 
+             end
+
+             generator.correlation = 1;
+             generator.dx = bem.dx/bem.deg_per_pixel;
+             
+                          
+             if (N == 0) && bootstrap_mode
+                 if isfield(bem.subunits(1),'V_L');
+                     if isempty(bem.subunits(1).V_L);
+                         bem = load_bootstrap(bem,generator);
+                     end
+                 else
+                     bem = load_bootstrap(bem,generator);
+                 end
+                                  
+                 if ~bem.check_bootstrap(generator);
+                     N = 2500;
+                 end
+             end
+             
+             
+             idstring = id2string(generator.get_identifier());
+             C = simulate_spatial(bem,generator,N,bootstrap_mode);
+             bem.norm_constants.(idstring) = mean(C);             
+         end         
+         
+         function bool = check_normalization_constant(bem,generator);
+            generator.correlation = 1;
+            generator.dx = bem.dx/bem.deg_per_pixel; 
+            idstring = id2string(generator.get_identifier());
+            bool = isfield(bem.norm_constants,idstring);
+         end
+
+    end
+    
+    methods (Hidden,Static);
+        [] = bootstrap_mode_unit_tests();
     end
 end

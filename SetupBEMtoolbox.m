@@ -1,3 +1,4 @@
 function SetupBEMtoolbox()
-    addpath(pwd);
+    addpath(genpath(pwd));
+    rmpath([pwd,'/.git']);
 end

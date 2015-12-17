@@ -19,27 +19,27 @@ function bem = update(bem)
         % fields to be empty ([]) and use custom ones for each
         % subunit.
         if isempty(bem.dx)
-            dx_L = bem.subunits(j).dx/2;
-            dx_R = -bem.subunits(j).dx/2;
+            dx_L = -bem.subunits(j).dx/2;
+            dx_R = bem.subunits(j).dx/2;
         else
-            dx_L = bem.dx/2;
-            dx_R = -bem.dx/2;
+            dx_L = -bem.dx/2;
+            dx_R = bem.dx/2;
         end
 
         if isempty(bem.dy);
-            dy_L = bem.subunits(j).dy/2;
-            dy_R = -bem.subunits(j).dy/2;
+            dy_L = -bem.subunits(j).dy/2;
+            dy_R = bem.subunits(j).dy/2;
         else
-            dy_L = bem.dy/2;
-            dy_R = -bem.dy/2;
+            dy_L = -bem.dy/2;
+            dy_R = bem.dy/2;
         end
 
         if isempty(bem.dphi)
-            phi_L = bem.subunits(j).dphi/2;
-            phi_R = -bem.subunits(j).dphi/2;
+            phi_L = -bem.subunits(j).dphi/2;
+            phi_R = bem.subunits(j).dphi/2;
         else
-            phi_L = bem.dphi/2;
-            phi_R = -bem.dphi/2;
+            phi_L = -bem.dphi/2;
+            phi_R = bem.dphi/2;
         end
 
 
@@ -56,9 +56,65 @@ function bem = update(bem)
             rf.left.y0 = bem.y0 + dy_L;
             rf.right.y0 = bem.y0 + dy_R;
         end
-
-
-
+        
+        
+        % Temporal kernel parameters
+        if ~isempty(bem.temporal_kernel);
+            rf.left.temporal_kernel = bem.temporal_kernel;
+            rf.right.temporal_kernel = bem.temporal_kernel;
+            
+            % If a kernel has been specified, then we want to set whatever
+            % default params that have not already been set.
+            tk = BEMunit.default_tk();
+            if isempty(bem.tk.tau);
+                bem.tk.tau=tk.tau;
+            end
+            
+            if isempty(bem.tk.alpha);
+                bem.tk.alpha=tk.alpha;
+            end
+            
+            if isempty(bem.tk.omega)
+                bem.tk.omega=tk.omega;
+            end
+            
+            if isempty(bem.tk.t_phi)
+                bem.tk.t_phi=tk.t_phi;
+            end
+            
+            if isempty(bem.tk.t0);
+                bem.tk.t0=tk.t0;
+            end
+                
+        end                
+        
+        if ~isempty(bem.tk.tau)
+            rf.left.tau=bem.tk.tau;
+            rf.right.tau=bem.tk.tau;                    
+        end
+        
+        if ~isempty(bem.tk.alpha);
+            rf.left.alpha=bem.tk.alpha;
+            rf.right.alpha=bem.tk.alpha;
+        end
+        
+        if ~isempty(bem.tk.t_phi);
+            rf.left.t_phi=bem.tk.t_phi;
+            rf.right.t_phi=bem.tk.t_phi;
+        end
+        
+        if ~isempty(bem.tk.t0);
+            rf.left.t0 = bem.tk.t0;
+            rf.right.t0 = bem.tk.t0;
+        end
+        
+        if ~isempty(bem.tk.omega);
+            rf.left.omega = bem.tk.omega;
+            rf.right.omega = bem.tk.omega;
+        end
+        
+        %if 
+      
         rf.left.phi = rf.left.phi + phi_L;
         rf.right.phi = rf.right.phi + phi_R;
 
@@ -86,7 +142,7 @@ function bem = update(bem)
             case 'gamma_cosine'
                 bem.subunits(j).L_tk = gamma_cosine(bem.t,t_c,rf.left);
             case 'gaussian'
-                bem.subunits(j).L_tk = gaussian(bem.t,t_c,rf.left);
+                bem.subunits(j).L_tk = temporal_gaussian(bem.t,t_c,rf.left);
             case 'none'
                 bem.t=[];
         end
@@ -96,7 +152,7 @@ function bem = update(bem)
             case 'gamma_cosine'
                 bem.subunits(j).R_tk = gamma_cosine(bem.t,t_c,rf.right);
             case 'gaussian'
-                bem.subunits(j).R_tk = gaussian(bem.t,t_c,rf.right);
+                bem.subunits(j).R_tk = temporal_gaussian(bem.t,t_c,rf.right);
             case 'none'
                 bem.t=[];
         end
