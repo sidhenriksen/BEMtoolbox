@@ -53,6 +53,11 @@
             current_C = simulate_spatial(bem,generator,new_n_frames,bootstrap_mode);
                         
             C(start:stop) = current_C;
+            
+            % The bootstrap data here is saved to disk in batches and is
+            % not available in the workspace, so we have to load it from
+            % disk.
+            bem = bem.load_bootstrap(generator); 
         end
 
     else

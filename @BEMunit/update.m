@@ -135,14 +135,13 @@ function bem = update(bem)
         end
 
         bem.t = linspace(0,1.0,1001);
-        t_c = median(bem.t);
 
         % Left temporal kernel
         switch rf.left.temporal_kernel;
             case 'gamma_cosine'
-                bem.subunits(j).L_tk = gamma_cosine(bem.t,t_c,rf.left);
+                bem.subunits(j).L_tk = gamma_cosine(bem.t,rf.left);
             case 'gaussian'
-                bem.subunits(j).L_tk = temporal_gaussian(bem.t,t_c,rf.left);
+                bem.subunits(j).L_tk = temporal_gaussian(bem.t,rf.left);
             case 'none'
                 bem.t=[];
         end
@@ -150,14 +149,13 @@ function bem = update(bem)
         % Right temporal kernel
         switch rf.right.temporal_kernel;
             case 'gamma_cosine'
-                bem.subunits(j).R_tk = gamma_cosine(bem.t,t_c,rf.right);
+                bem.subunits(j).R_tk = gamma_cosine(bem.t,rf.right);
             case 'gaussian'
-                bem.subunits(j).R_tk = temporal_gaussian(bem.t,t_c,rf.right);
+                bem.subunits(j).R_tk = temporal_gaussian(bem.t,rf.right);
             case 'none'
                 bem.t=[];
         end
         bem.subunits(j).rf_params = rf;
-
     end
     bem.n_subunits = length(bem.subunits);
 end
