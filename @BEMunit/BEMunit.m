@@ -69,11 +69,13 @@ classdef BEMunit
         bem = add_subunit(bem,varargin);
         bem = modify_subunit(bem,k_sub,varargin);
         bem = update(bem);
-        [bem,big_bem] = load_bootstrap(bem,generator);
-        save_bootstrap(bem,generator); 
         
-        C = simulate_spatial(bem,generator,n_frames,bootstrap_mode,seed_list);
-        C = simulate_spatiotemporal(bem,generator,n_frames,duration,bootstrap_mode,seed_list);
+        [bem,big_bem] = load_bootstrap(bem,generator);
+        save_bootstrap(bem,generator);
+        delete_bootstrap(bem,generator);
+        
+        C = simulate_spatial(bem,generator,n_frames,bootstrap_mode,run_parallel,seed);       
+        C = simulate_spatiotemporal(bem,generator,n_frames,duration,bootstrap_mode,seed);
         
         
     end
@@ -84,6 +86,16 @@ classdef BEMunit
         
         % Constructor
         function bem = BEMunit(varargin)
+            
+            % Get the full path of the BEMtoolbox
+            BEMunit_dir = mfilename('fullpath');
+            stop_idx = strfind(BEMunit_dir,'@BEMunit')-2;
+            bem.toolbox_dir=BEMunit_dir(1:stop_idx);
+            
+            % This is where we save the data
+            bem.bootstrap_dir=[bem.toolbox_dir,'/.data/'];   
+            
+            
             % Loop over and set the field to the appropriate value if the
             % field is valid; throw an assertion error otherwise.
             for j = 1:2:(length(varargin)-1);
@@ -99,13 +111,7 @@ classdef BEMunit
                 bem = add_subunit(bem,'L_phi',pi/2,'R_phi',pi/2);                
             end
 
-            % Get the full path of the BEMtoolbox
-            BEMunit_dir = mfilename('fullpath');
-            stop_idx = strfind(BEMunit_dir,'@BEMunit')-2;
-            bem.toolbox_dir=BEMunit_dir(1:stop_idx);
-            
-            % This is where we save the data
-            bem.bootstrap_dir=[bem.toolbox_dir,'/.data/'];   
+
             
         end
         
@@ -168,15 +174,16 @@ classdef BEMunit
                     end
 
                     subplot(2,1,2);
-                    t2 = linspace(-0.5,0.5,301);
-                    t_c = median(t2);
+                    
+                    t2 = 0:bem.dt:0.5;
+                    
                     rf = bem.subunits(1).rf_params;
                     switch bem.temporal_kernel
                         case 'gaussian'
-                            tk=temporal_gaussian(t2,t_c,rf.left);                        
+                            tk=temporal_gaussian(t2,rf.left);                        
 
                         case 'gamma-cosine'
-                            tk=gamma_cosine(t2,t_c,rf.left);
+                            tk=gamma_cosine(t2,rf.left);
                 
                     end
                     plot(t2,tk,'k -','linewidth',3);
@@ -230,7 +237,54 @@ classdef BEMunit
             ccf = ccf(cc_idx);
         end
         
-            
+        function bem = compute_normalization_constant(bem,generator,N,bootstrap_mode)
+             
+             if nargin < 3
+                % number of frames to estimate your normalisation constant
+                % from
+                N = 2500; 
+             else
+                 if isempty(N);
+                     N = 2500;
+                 end
+             end
+             
+             if nargin < 4
+                 bootstrap_mode = 0;                 
+             end
+
+             generator.correlation = 1;
+             generator.dx = bem.dx/bem.deg_per_pixel;
+             
+                          
+             if (N == 0) && bootstrap_mode
+                 if isfield(bem.subunits(1),'V_L');
+                     if isempty(bem.subunits(1).V_L);
+                         bem = load_bootstrap(bem,generator);
+                     end
+                 else
+                     bem = load_bootstrap(bem,generator);
+                 end
+                                  
+                 if ~bem.check_bootstrap(generator);
+                     N = 2500;
+                 end
+             end
+             
+             
+             idstring = id2string(generator.get_identifier());
+             C = simulate_spatial(bem,generator,N,bootstrap_mode);
+             bem.norm_constants.(idstring) = mean(C);             
+         end         
+         
+         function bool = check_normalization_constant(bem,generator);
+            generator.correlation = 1;
+            generator.dx = bem.dx/bem.deg_per_pixel; 
+            idstring = id2string(generator.get_identifier());
+            bool = isfield(bem.norm_constants,idstring);
+         end
+
+        
     end
     
    
@@ -246,7 +300,7 @@ classdef BEMunit
             rf_params_both.sy=0.1;
             rf_params.sigma=[];
             %frequency of gabor
-            rf_params_both.f=0.3./0.1;
+            rf_params_both.f=3.125; % cycles per degree
             rf_params_both.phi=0;
 
             % temporal properties of receptive field
@@ -303,22 +357,11 @@ classdef BEMunit
             end
             
         end
-        
-                
-        
-        
-        
-        
-        
-       
-
-        
-        
-        
+            
     end
 
     methods (Hidden)
-        function id = get_identifier(bem,ks)
+        function id = get_identifier(bem,ks,varargin)
             % This method will return a unique identifier
             % based on relevant RF properties for bootstrap resampling.            
             % If 'load_bootstrap' is toggled, this identifier will be used 
@@ -326,7 +369,7 @@ classdef BEMunit
             % Usage: id = bem.get_identifier(<ks>)
             % ks: Optional argument. If not provided, the id will be a
             % unique identifier for the entire unit. If provided, the 
-            % 
+            % id will only be based on the subsets specified
             
             % This is done by adding together the RMS for the left RF,
             % right RF, and the ccf. These should be positionally
@@ -336,7 +379,15 @@ classdef BEMunit
             % rms(x)==rms(-x)).
             
             bem_props = {'dim','dx','dy','Nx','Ny','deg_per_pixel'};
-            sub_props = {'sx','sy','f','rf_type','phi'};            
+            sub_props = {'sx','sy','f','rf_type','phi'};
+            
+            K = 6;
+            
+            for k = 1:length(varargin);
+                if strcmp(varargin{k},'K');
+                    K = varargin{k+1};
+                end
+            end
             
             all_props = [];
             for prop = 1:length(bem_props);
@@ -346,95 +397,38 @@ classdef BEMunit
             
             if nargin < 2
                 ks = 1:bem.n_subunits;
-            end               
+            end
             
             for j = ks
                 
-                for prop = 1:length(sub_props)                    left_prop = num2str(bem.subunits(j).rf_params.left.(sub_props{prop}));
+                for prop = 1:length(sub_props)                    
+                    left_prop = num2str(bem.subunits(j).rf_params.left.(sub_props{prop}));
                     right_prop = num2str(bem.subunits(j).rf_params.right.(sub_props{prop}));
                                         
                     all_props = [all_props,left_prop,right_prop];
                 end
             end
 
-            id = stringhash(all_props);
+            id = stringhash(all_props,'K',K);
             
         end
     
 
-         function bool = check_bootstrap(bem,generator);
+        function bool = check_bootstrap(bem,generator)
             % Method to check whether the current model/stimulus
             % combination has already been bootstrapped
             % Returns a 1 if yes, a 0 if no. 
             % Usage: bool = bem.check_bootstrap(generator);
-            
-            bool = 0;
-            
+
             bem_id = bem.get_identifier();
             stim_id = generator.get_identifier();
-            
-            % unique ID for bem + stim pairing
-            idx_name = [num2str(bem_id),'.idx'];                        
-            idx_file = [bem.bootstrap_dir,'/',idx_name];
-            
-            if exist(idx_file,'file');
-                fid = fopen(idx_file,'r');
-                stim_index = textscan(fid,'%s'); 
-                stim_index = stim_index{1};
-                stim_match = strcmp(stim_index,num2str(stim_id));
-                
-                bool = any(stim_match);
-            end                       
-            
-         end
-         
-         function bem = compute_normalization_constant(bem,generator,N,bootstrap_mode)
-             
-             if nargin < 3
-                % number of frames to estimate your normalisation constant
-                % from
-                N = 2500; 
-             else
-                 if isempty(N);
-                     N = 2500;
-                 end
-             end
-             
-             if nargin < 4
-                 bootstrap_mode = 0;                 
-             end
 
-             generator.correlation = 1;
-             generator.dx = bem.dx/bem.deg_per_pixel;
-             
-                          
-             if (N == 0) && bootstrap_mode
-                 if isfield(bem.subunits(1),'V_L');
-                     if isempty(bem.subunits(1).V_L);
-                         bem = load_bootstrap(bem,generator);
-                     end
-                 else
-                     bem = load_bootstrap(bem,generator);
-                 end
-                                  
-                 if ~bem.check_bootstrap(generator);
-                     N = 2500;
-                 end
-             end
-             
-             
-             idstring = id2string(generator.get_identifier());
-             C = simulate_spatial(bem,generator,N,bootstrap_mode);
-             bem.norm_constants.(idstring) = mean(C);             
-         end         
-         
-         function bool = check_normalization_constant(bem,generator);
-            generator.correlation = 1;
-            generator.dx = bem.dx/bem.deg_per_pixel; 
-            idstring = id2string(generator.get_identifier());
-            bool = isfield(bem.norm_constants,idstring);
-         end
+            csvfile = [bem.bootstrap_dir,num2str(bem_id),'_',num2str(stim_id),'.csv'];
 
+            bool=exist(csvfile,'file');
+
+          end
+         
     end
     
     methods (Hidden,Static);

@@ -7,86 +7,25 @@ function save_bootstrap(bem,generator)
 
     bem_id = bem.get_identifier();
     stim_id = generator.get_identifier();
-
-    % unique ID for bem + stim pairing
-    idx_name = [num2str(bem_id),'.idx'];
-    mat_name = [num2str(bem_id),'.mat'];
-
-    idx_file = [bem.bootstrap_dir,'/',idx_name];
-    mat_file = [bem.bootstrap_dir,'/',mat_name];
-
-
-    % If there already exists a bem_index file then we want to append
-    % it with the stim_id (but only if it doesn't already exist).
-    % If it already exists then we shouldn't do anything.            
-    if exist(idx_file,'file');
-        fid = fopen(idx_file,'r');
-        stim_index = textscan(fid,'%s'); 
-        stim_index = stim_index{1};
-        stim_match = strcmp(stim_index,num2str(stim_id));
-        if ~any(stim_match);
-            stim_index{length(stim_index)+1} = num2str(stim_id);
-        end
-    else
-        stim_index = {num2str(stim_id)};
-    end                        
-
-    new_bem = bem;
     
-    existing_bootstrap_file = bem.check_bootstrap(generator);
-    % If there is an existing bootstrap file then we want to extend
-    % it rather than override it.
-    if existing_bootstrap_file
-        if ~bem.silent
-            fprintf('File found in archive; loading samples. ')
-        end
-        A = load(mat_file); big_bem = A.big_bem;
-        bstrap_bem = big_bem.(id2string(stim_id)).bem;
+    csvfile = [bem.bootstrap_dir,num2str(bem_id),'_',num2str(stim_id),'.csv'];
         
-
-        % merge the bstrap_bem and our current bem
-        for k = 1:bem.n_subunits
-            current_bem_id = get_identifier(bem,k);
-            match = 0;
-            for j = 1:length(bstrap_bem.subunits);
-                bstrap_id = get_identifier(bstrap_bem,j);
-                if bstrap_id == current_bem_id;
-                    match = j;
-                end
-
-            end
-
-            assert(match > 0,'No matching subunit found. This is likely a bug.');
-
-            V_L = bem.subunits(k).V_L;
-            V_R = bem.subunits(k).V_R;
-            
-            new_bem.subunits(k).V_L = [bstrap_bem.subunits(match).V_L,V_L];
-            new_bem.subunits(k).V_R = [bstrap_bem.subunits(match).V_R,V_R];            
-        end        
-    else
-        % If the model file already exists we don't want to overwrite it,
-        % so we load it first and then add the details for the new
-        % stimulus.
-        if exist(mat_file,'file')
-            load(mat_file);
-        end                
+    new_data = zeros(length(bem.subunits(1).V_L),length(bem.subunits)*2);
+        
+    for j = 1:length(bem.subunits);
+        
+        k=(j-1)*2+1;
+        new_data(:,k:k+1) = [bem.subunits(j).V_L,bem.subunits(j).V_R];
     end
-
-    big_bem.(id2string(stim_id)).generator = generator;
-    big_bem.(id2string(stim_id)).bem = new_bem;
-
-    if ~bem.silent
-        fprintf('Saving file... ')
-    end
-    save(mat_file,'big_bem')
-
-    fid=fopen(idx_file,'w');
-    fprintf(fid,'%s\n',stim_index{:});
-    fclose(fid);
     
-    if ~bem.silent
-        fprintf('Done.\n');
+    if exist(csvfile,'file');
+        
+        existing_data=csvread(csvfile);
+        
+        new_data = [existing_data;new_data];
     end
-            
+    
+    
+    csvwrite(csvfile,new_data);
+    
 end

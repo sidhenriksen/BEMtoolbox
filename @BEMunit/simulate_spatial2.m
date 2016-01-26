@@ -1,4 +1,4 @@
- function C = simulate_spatial(bem,generator,n_frames,bootstrap_mode,run_parallel,seed)
+ function C = simulate_spatial2(bem,generator,n_frames,bootstrap_mode,run_parallel)
     % Computes the spatial response of a BEMunit object to a sequence of
     % stimuli created the generator object.
     %
@@ -24,11 +24,6 @@
         run_parallel = false;
     end
     
-    if nargin < 6
-        seed=randi(1e9,1);        
-    end    
-    rng(seed)    
-    seed_list = randi(1e9,n_frames,1);
     
     total_bytes = bem.Nx * bem.Ny *n_frames * 8;
     if total_bytes > bem.memory_threshold;
@@ -52,45 +47,37 @@
                 new_n_frames = n_frames-(k-1)*new_n_frames;
             end
             
-            start = (k-1)*new_n_frames + 1;
+            start = (k-1)*new_n_frames + 1;            
             stop = start+new_n_frames-1;
             
-            
-            current_C = simulate_spatial(bem,generator,new_n_frames,bootstrap_mode,-1);
+            current_C = simulate_spatial(bem,generator,new_n_frames,bootstrap_mode);
                         
             C(start:stop) = current_C;
+        end
 
-        end
-        % The bootstrap data here is saved to disk in batches and is
-        % not available in the workspace, so we have to load it from
-        % disk.
-        if bootstrap_mode
-            bem = bem.load_bootstrap(generator); 
-        end
     else
         
 
         if n_frames > 0
             S = zeros(bem.n_subunits,n_frames); % subunit responses
-            I_Ls = zeros(bem.Nx*bem.Ny,n_frames);
-            I_Rs = zeros(bem.Nx*bem.Ny,n_frames);
+            L_idx = bem.subunits(1).L_active_idx;
+            R_idx = bem.subunits(1).R_active_idx;
+            I_Ls = zeros(length(L_idx),n_frames);
+            I_Rs = zeros(length(R_idx),n_frames);
+           
 
-            if run_parallel==1
+            if run_parallel
                 parfor j = 1:n_frames;
-                    
-                    rng(seed_list(j));
-                    
                     [I_L,I_R] = generator.generate();
-                    I_Ls(:,j) = I_L(:);
-                    I_Rs(:,j) = I_R(:);
+                    I_Ls(:,j) = I_L(L_idx);
+                    I_Rs(:,j) = I_R(R_idx);
                 end
             else
                 
                 for j = 1:n_frames;
-                    rng(seed_list(j));
                     [I_L,I_R] = generator.generate();
-                    I_Ls(:,j) = I_L(:);
-                    I_Rs(:,j) = I_R(:);
+                    I_Ls(:,j) = I_L(L_idx);
+                    I_Rs(:,j) = I_R(R_idx);
                 end
             end
         end
@@ -100,8 +87,8 @@
             
             if n_frames > 0
                 % compute left and right eye responses
-                L = bem.subunits(k).L(:)' * I_Ls;
-                R = bem.subunits(k).R(:)' * I_Rs;
+                L = bem.subunits(k).L(L_idx)' * I_Ls;
+                R = bem.subunits(k).R(R_idx)' * I_Rs;
             elseif bootstrap_mode
                 assert(isfield(bem.subunits(k),'V_L'),...
                     'Error: Bootstrap mode enabled with N=0, but no bootstrap distribution found.')
@@ -112,8 +99,8 @@
             end
 
             if bootstrap_mode               
-                bem.subunits(k).V_L = L';
-                bem.subunits(k).V_R = R';
+                bem.subunits(k).V_L = L;
+                bem.subunits(k).V_R = R;
             end
 
 
@@ -151,14 +138,8 @@
     
     
     
-    if bootstrap_mode && n_frames > 0
-        % Save data to disk if bootstrap mode is enabled and we didn't
-        % serialise it
-        
-        % So this will be true for either recursive calls (run_parallel ==-1)
-        % OR for method calls that never made any recursve calls (bytes <= thresh).
-        if run_parallel == -1 || (total_bytes <= bem.memory_threshold)
-            bem.save_bootstrap(generator);
-        end
+    if bootstrap_mode && n_frames > 0;
+        % Save data to disk if bootstrap mode is enabled        
+        bem.save_bootstrap(generator);                
     end
 end

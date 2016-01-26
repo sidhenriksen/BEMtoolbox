@@ -1,4 +1,4 @@
-function C = simulate_spatiotemporal(bem,generator,n_frames,duration,bootstrap_mode)
+function C = simulate_spatiotemporal(bem,generator,n_frames,duration,bootstrap_mode,indices)
     % Computes the spatiotemporal response of the cell in response
     % to a trial consisting of the frames given by the stimulus
     % generator.
@@ -28,6 +28,10 @@ function C = simulate_spatiotemporal(bem,generator,n_frames,duration,bootstrap_m
 
     if nargin < 5
         bootstrap_mode = false;
+    end
+    
+    if nargin < 6
+        indices = [];
     end
     
     n_frame_repeats = ceil(duration/(n_frames*bem.dt));
@@ -72,8 +76,17 @@ function C = simulate_spatiotemporal(bem,generator,n_frames,duration,bootstrap_m
                 Rs(k,:) = R_rep(:)*dx*dy;
             end
         else
-            assert(isfield(bem.subunits,'V_L'),'Error: Bootstrapped data not loaded.');                        
-            seed_indices = randi(length(bem.subunits(1).V_L),1,n_frames);
+            assert(isfield(bem.subunits,'V_L'),'Error: Bootstrapped data not loaded.');
+            
+            if ~isempty(indices);
+                current_index = indices;
+            else
+                current_index = randi(length(bem.subunits(1).V_L),1,n_frames);
+            end
+            
+            if ~iscolumn(current_index);
+                current_index = current_index';
+            end
             
             % If we're in bootstrap mode and we've specified a seed
             % sequence then we find the indices for those and use them as
@@ -83,8 +96,17 @@ function C = simulate_spatiotemporal(bem,generator,n_frames,duration,bootstrap_m
                 % The seed indices here are either given as arguments, or
                 % if no argument is given, are random picks from
                 % V_L/V_R.
-                L = bem.subunits(k).V_L(seed_indices);
-                R = bem.subunits(k).V_R(seed_indices);
+                L = bem.subunits(k).V_L(current_index)';
+                R = bem.subunits(k).V_R(current_index)';
+                
+                if iscolumn(L);
+                    L = L';
+                end
+                
+                if iscolumn(R)
+                    R = R';
+                end
+                
                 L_rep = repmat(L,[n_frame_repeats,1]);
                 R_rep = repmat(R,[n_frame_repeats,1]);
 
@@ -107,19 +129,20 @@ function C = simulate_spatiotemporal(bem,generator,n_frames,duration,bootstrap_m
     for k = 1:bem.n_subunits;
         L = Ls(k,:);
         R = Rs(k,:);
+        
+        
         bem.t = linspace(0,(n_frames*n_frame_repeats-1)*bem.dt,n_frames*n_frame_repeats);
-        rf = bem.subunits(k).rf_params;
-        t_c = median(bem.t);
+         rf = bem.subunits(k).rf_params;        
         switch bem.temporal_kernel
             case 'gaussian'
-                L_tk=temporal_gaussian(bem.t,t_c,rf.left);
-                R_tk=temporal_gaussian(bem.t,t_c,rf.right);
+                L_tk=temporal_gaussian(bem.t,rf.left);
+                R_tk=temporal_gaussian(bem.t,rf.right);
 
             case 'gamma-cosine'
-                L_tk=gamma_cosine(bem.t,t_c,rf.left);
-                R_tk=gamma_cosine(bem.t,t_c,rf.right);
+                L_tk=gamma_cosine(bem.t,rf.left);
+                R_tk=gamma_cosine(bem.t,rf.right);
         end
-        
+                                
         % Transform temporal kernel to frequency domain
         L_tk_fft = fft(L_tk);
         R_tk_fft = fft(R_tk);
@@ -130,12 +153,14 @@ function C = simulate_spatiotemporal(bem,generator,n_frames,duration,bootstrap_m
         
         % Multiply the ffts and move back to time domain; this is 
         % equivalent to convolving the two.
-        V_L = fftshift(ifft(L_tk_fft .* L_fft));
-        V_R = fftshift(ifft(R_tk_fft .* R_fft));
+        V_L = ifft(L_tk_fft .* L_fft);
+        V_R = ifft(R_tk_fft .* R_fft);
         
+
         % Finally, pass the summed response through the relevant
         % nonlinearity
-        V(k,:) = bem.subunits(k).NL((V_L+V_R));        
+        V(k,:) = bem.subunits(k).NL((V_L+V_R));
+        
     end
     
     C = sum(V);
