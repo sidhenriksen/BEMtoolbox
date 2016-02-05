@@ -160,7 +160,7 @@ classdef BEMunit
                     set(gca,'clim',[min(clims(:)),max(clims(:))]);
                 end
                 
-                if plot_kernels
+                if plot_kernels && ~strcmp(bem.temporal_kernel,'none');
                     figure();
                     subplot(2,1,1); hold on;
                     for j = 1:bem.n_subunits;

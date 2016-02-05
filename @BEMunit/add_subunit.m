@@ -1,6 +1,10 @@
 function bem = add_subunit(bem,varargin)
     % Add a new binocular subunit to the model
-    % Usage: 
+    % Usage: bem = bem.add_subunit(<params>)
+    % Example:
+    % bem = bem.add_subunit('L_phi',pi/2, 'R_phi',0);
+    % Will add a subunit with left and right eye's phases of pi/2 and 0,
+    % respectively. 
 
     rf = BEMunit.default_rf_params();
 

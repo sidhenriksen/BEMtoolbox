@@ -6,7 +6,7 @@ classdef pairedRDS < StimulusGenerator
         density=0.24; % dot density; proportion of stimulus coverage assuming no overlap
         dx=0; % horizontal disparity in pixels
         dy=0; % vertical disparity in pixels
-        correlation=1; %-1 is anti-correlated; 0 is uncorrelated; 1 is correlated;
+        correlation=1; %-1 is anti-correlated; 0 is halfmatched; 1 is correlated;
         
         Nx=292; % stimulus width in pixels
         Ny=292; % stimulus height in pixels
@@ -21,7 +21,7 @@ classdef pairedRDS < StimulusGenerator
         rho1=0;
         rho2=0;
         
-        
+        toggle_match=1;
     end
     
     properties (Hidden)
@@ -298,8 +298,52 @@ classdef pairedRDS < StimulusGenerator
             % paint the dots sequentially
             AllLeftCenters = [[AnnulusCenters(:,1)-ceil(rds.annulus_dx/2),AnnulusCenters(:,2)];[DiskCenters(:,1) - ceil(rds.dy/2),DiskCenters(:,2) - ceil(rds.dx/2)]; NewAreaLeftCenters];
             AllRightCenters = [[AnnulusCenters(:,1)+floor(rds.annulus_dx/2),AnnulusCenters(:,2)];[DiskCenters(:,1) + floor(rds.dy/2),DiskCenters(:,2) + floor(rds.dx/2)];NewAreaRightCenters];
+            
+            
+            if ~rds.toggle_match;
+                % There are a few things we need to do if we've toggled
+                % this.
+                % 1) Set all dots to either correlated or anticorrelated
+                % (depending on sign of rds.correlation)
+                % 2) Take a subset of those dots and make them uncorrelated
+                                
+                if rds.correlation > 0;
+                    RightDiskFill = LeftDiskFill;                    
+                    
+                elseif rds.correlation < 0;
+                    RightDiskFill = -LeftDiskFill;
+                end
+                
+                if rds.annulus_correlation > 0;
+                    RightAnnulusFill = LeftAnnulusFill;
+                elseif rds.annulus_correlation < 0;
+                    RightAnnulusFill = -LeftAnnulusFill;
+                end
+                RightFill = [RightAnnulusFill, RightDiskFill, RightClearedFill];
+                
+                
+                [RightDiskX,RightDiskY] = ind2sub([rds.Ny,rds.Nx],RightDisk);
+                [RightAnnulusX,RightAnnulusY] = ind2sub([rds.Ny,rds.Nx],RightAnnulus);
+                
+                
+                
+                RightAnnulusCenters = [AnnulusCenters(:,1)+floor(rds.annulus_dx/2),AnnulusCenters(:,2)];
+                RightDiskCenters = [[DiskCenters(:,1) + floor(rds.dy/2),DiskCenters(:,2) + floor(rds.dx/2)];NewAreaRightCenters];
+                
+                nUncorrelatedAnnulus = round(length(RightAnnulusCenters) * (1-abs(rds.annulus_correlation)));
+                nUncorrelatedDisk = round(length(RightDiskCenters)*(1-abs(rds.correlation)));
+                
+                UncorrelatedAnnulusIndices = randperm(length(RightAnnulusX),nUncorrelatedAnnulus);
+                UncorrelatedDiskIndices = randperm(length(RightDiskX),nUncorrelatedDisk);
+                
+                RightAnnulusCenters(1:nUncorrelatedAnnulus,:) = [RightAnnulusX(UncorrelatedAnnulusIndices),RightAnnulusY(UncorrelatedAnnulusIndices)];
+                RightDiskCenters(1:nUncorrelatedDisk,:) = [RightDiskX(UncorrelatedDiskIndices),RightDiskY(UncorrelatedDiskIndices)];
+                
+                AllRightCenters = [RightAnnulusCenters;RightDiskCenters];
+                
+                end
 
-            nDotsToPaint = min(length(LeftFill),length(AllLeftCenters));
+            nDotsToPaint = min(length(LeftFill),length(AllLeftCenters));            
 
             % This is for the disparity2 parameter: We simply choose a subset of
             % all of these dots and set their centers to be rds.secondary_dx. This is
