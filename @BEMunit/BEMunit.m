@@ -302,6 +302,8 @@ classdef BEMunit
             %frequency of gabor
             rf_params_both.f=3.125; % cycles per degree
             rf_params_both.phi=0;
+            % orientation of gabor
+            rf_params_both.theta=0;
 
             % temporal properties of receptive field
             rf_params_both.temporal_kernel='gamma-cosine';
