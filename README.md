@@ -35,10 +35,11 @@ testing, and so on).
 
 ## Putting together BEMunit and StimulusGenerator
 ```
- bem = BEMunit('x0',0,'y0',0) # sets RF centres in the middle of the stimulus
- rds = RDS()
- N = 1000
- C = bem.simulate_spatial(rds,N) # compute responses to N stimuli (returned by calling generate on the RDS object)
+bem = BEMunit('x0',0,'y0',0) # sets RF centres in the middle of the stimulus
+rds = RDS()
+N = 1000
+C = bem.simulate_spatial(rds,N) # compute responses to N stimuli (returned by calling generate on the RDS object)
+```
 
 See the demos directory for an example disparity tuning curve.
 
@@ -51,6 +52,7 @@ In order to add subunits, simply call the add_subunit method on the BEMunit obje
 ```
  bem = BEMunit();
  bem = bem.add_subunit('L_phi',pi/2,'R_phi',3/4*pi')
+```
 will add a subunit with a Gabor with pi/2 phase in the left and 3/4*pi phase 
 in the right eye.
 
@@ -65,7 +67,7 @@ is to use:
 ```
 subunit = 1;
 bem = bem.modify_subunits(subunit,'L_f',1.6,'R_f',1.6);
-
+```
 'L_f' tells BEMtoolbox that we want to set the frequency (f) field in the 
 left eye, and likewise for 'R_f'. The variable subunit indexes the subunit
 we want to change (in this case it is the first subunit). 
@@ -83,6 +85,7 @@ nonlinearity we want, e.g.:
 myNL = @(x)((x>0).*x); #threshold nonlinearity
 bem.subunits(1).NL = myNL;
 bem.subunits(2).NL = myNL;
+```
 
 ### Complex nonlinearities
 These are NLs that act on the complex cell response. In the original BEM, 
@@ -92,12 +95,12 @@ Henriksen et al., 2016, and many more). For example:
 ```
 myNL = @(x)(x.^2);
 bem.outputNL = myNL;
-
+```
 Will square the output of the energy model units. Alternatively,
 ```
 theta=0.5;
 gamma = 2;
 myNL = @(x)( (x * (x > theta)).^gamma)
 bem.outputNL = myNL
-
+```
 Will threshold and raise to power gamma.
