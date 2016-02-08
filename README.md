@@ -11,7 +11,7 @@ There are two key classes in BEMtoolbox: BEMunits and StimulusGenerators.
 BEMunits are your model objects. An object is created by calling:
 ```
 bem = BEMunit();
-
+```
 
 You can set a bunch of model properties, such as RF size, vertical and
 horizontal disparity, temporal kernel width (and type), and so on.
@@ -23,6 +23,7 @@ generate which will return an example stereogram. For example:
 ```
 rds = RDS()
 [L,R] = rds.generate()
+```
 
 L and R is the left and right eye's image, respectively. 
 
