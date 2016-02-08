@@ -68,8 +68,8 @@ is to use:
 subunit = 1;
 bem = bem.modify_subunits(subunit,'L_f',1.6,'R_f',1.6);
 ```
-'L_f' tells BEMtoolbox that we want to set the frequency (f) field in the 
-left eye, and likewise for 'R_f'. The variable subunit indexes the subunit
+`'L_f`' tells BEMtoolbox that we want to set the frequency (`f`) field in the 
+left eye, and likewise for `'R_f'`. The variable subunit indexes the subunit
 we want to change (in this case it is the first subunit). 
 
 ## Changing nonlinearities
@@ -79,8 +79,8 @@ BEMtoolbox supports nonlinearities at two stages of the model hierarchy:
 These are the NLs that act on the simple cells in the classical
 energy model framework. This is simply a squaring in the BEM, S1 = (L1+R1)^2,
 where L1 and R1 refer to the responses of the monocular subunits. If we want
-to change this, we simply set the bem.subunits(i).NL field to whatever
-nonlinearity we want, e.g.:
+to change this, we simply set the `bem.subunits(i).NL` field to whatever
+nonlinearity we want using a function handle, e.g.:
 ```
 myNL = @(x)((x>0).*x); #threshold nonlinearity
 bem.subunits(1).NL = myNL;
@@ -89,14 +89,15 @@ bem.subunits(2).NL = myNL;
 
 ### Complex nonlinearities
 These are NLs that act on the complex cell response. In the original BEM, 
-this is simply the identity function. However, multiple papers have explored
-alternatives to this (Read et al., 2002; Doi & Fujita, 2014; 
+this is simply the identity function f(x)=x. However, multiple papers have 
+explored alternatives to this (Read et al., 2002; Doi & Fujita, 2014; 
 Henriksen et al., 2016, and many more). For example:
 ```
 myNL = @(x)(x.^2);
 bem.outputNL = myNL;
 ```
-Will square the output of the energy model units. Alternatively,
+Will square the output of the energy model units (explored in 
+Read et al., 2002; Henriksen et al., 2016). Alternatively,
 ```
 theta=0.5;
 gamma = 2;
