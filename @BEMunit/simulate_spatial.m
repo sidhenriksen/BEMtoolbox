@@ -12,6 +12,8 @@
     % stimuli. This can be useful if you need to recreate an exact stimulus
     % sequence.    
 
+    assert((bem.Nx == generator.Nx) && (bem.Ny == generator.Ny),'Error: BEMunit and generator object dimensions must be equal.');
+    
     if nargin < 3;
         n_frames = 1;
     end
