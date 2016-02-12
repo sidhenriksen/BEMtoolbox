@@ -1,0 +1,7 @@
+These are the files that get contain the monocular responses.
+A hash function takes each bem and rds object and converts it into a
+unique identifier. Each bem object-rds object combination gets its own csv file.
+
+Column 1 corresponds to the left eye response of the first subunit, column
+2 to the right eye response of the first subunit, column 3 the left eye response
+of the second subunit, and so on. (L1, R1, L2, R2, L3, R3, ...).
