@@ -32,17 +32,35 @@ It is strongly recommended (though not strictly necessary) that you inherit
 from StimulusGenerator when you create your stimulus class (see RDS.m for an 
 example). The advantage of this is that there are additional functionalities 
 in the StimulusGenerator class (such as easy displaying of stimuli, unit 
-testing, and so on).
+testing, and so on). In principle, a StimulusGenerator can be anything:
+sine waves with random phases or frequencies, natural images, or, as used
+here, random dot stereograms.
 
-## Putting together BEMunit and StimulusGenerator
+## Simulating responses
+We do this by putting together BEMunit and StimulusGenerator
 ```
 bem = BEMunit('x0',0,'y0',0) # sets RF centres in the middle of the stimulus
 rds = RDS()
 N = 1000
 C = bem.simulate_spatial(rds,N) # compute responses to N stimuli (returned by calling generate on the RDS object)
 ```
-
 See the demos directory for an example disparity tuning curve.
+
+BEMtoolbox also supports spatiotemporal responses. Spatiotemporal simulations
+can be done fairly easily:
+```
+n_frames = 20;
+duration = 0.5;
+bem.temporal_kernel = 'gaussian';
+C = bem.simulate_spatiotemporal(rds,n_frames,duration);
+```
+C will here be an array which contains the temporal response of the RF to a sequence of 
+generated stimuli.
+
+Currently, there is only support for separable spacetime receptive fields
+with more than two dimensions (although you can in principle use the 2D spatial RF as a 
+spacetime RF with one space dimension; I might get around to implementing more proper 
+support for spacetime inseparable RFs).
 
 # Custom models
 BEMtoolbox provides a flexible and extensible framework for simulating binocular
@@ -70,8 +88,8 @@ subunit = 1;
 bem = bem.modify_subunits(subunit,'L_f',1.6,'R_f',1.6);
 ```
 `'L_f`' tells BEMtoolbox that we want to set the frequency (`f`) field in the 
-left eye, and likewise for `'R_f'`. The variable subunit indexes the subunit
-we want to change (in this case it is the first subunit). 
+left eye, and likewise for `'R_f'`. Frequency units are in cycles per degree.
+The variable subunit indexes the subunit we want to change (in this case it is the first subunit). 
 
 ## Changing nonlinearities
 BEMtoolbox supports nonlinearities at two stages of the model hierarchy:
@@ -107,3 +125,81 @@ bem.outputNL = myNL
 ```
 Will threshold and raise to power gamma.
 
+# Advanced (slightly experimental) capabilities
+## Bootstrap mode
+Bootstrap mode is a way of doing temporal convolutions through resampling. This is, to my knowledge,
+the fastest way of running spatiotemporal simulations with space-time separable receptive fields.
+Bootstrap mode works by pre-computing the spatial responses of cells and storing these to disk.
+When you then run a spatiotemporal simulation with a particular stimulus, BEMtoolbox will read the
+data from disk to generate your random sequence of RDSs. It is called bootstrap mode because what
+we are essentially doing is creating a bootstrap distribution of monocular spatial responses,
+and resampling from this distribution before doing our temporal filtering. This is *much* faster than
+generating a new RDS, computing the spatial response of each monocular subunit, and then doing the
+temporal convolutions. The temporal convolutions are done through FFTs, which are very fast (nlogn). Thus, the
+bottleneck is in generating the RDS and doing spatial filtering. Bootstrap mode precomputes the monocular
+responses so that you only have to go through the bottleneck once per stimulus condition. Note, it is best
+to use a large number of frames for generating your bootstrap distribution (ideally > 5000, depending on 
+your purposes)
+
+How it works:
+```
+bootstrap_mode = 1;
+N = 1e3; % number of RDSs to pre-compute (large numbers are usually better)
+bem = BEMunit();
+rds = RDS();
+C=bem.simulate_spatial(rds,N,bootstrap_mode);
+
+```
+
+This will save the monocular convolution values for this stimulus to disk. You will need to load the values from
+disk with `load_bootstrap`; loading this explicitly means that you only have to read the values from disk once. 
+
+If you now want to simply compute the model responses using the saved values you can do:
+```
+N = 0;
+bootstrap_mode = 1;
+C = bem.simulate_spatial(rds,N,bootstrap_mode);
+```
+Setting `N=0` and `bootstrap_mode=1` tells BEMtoolbox to load the responses, rather than computing new ones.
+Using N>0 will make BEMtoolbox compute new monocular convolutions and *append* them to existing ones.
+
+You can also do a spatiotemporal simulation with and without bootstrap mode. This is where bootstrap mode
+is perhaps the most useful:
+```
+bem.temporal_kernel = 'gamma-cosine';
+% 10 frames in 500 ms is 20Hz RDS.
+n_frames = 10;
+duration = 0.5;
+
+# without bootstrap mode
+tic
+bootstrap_mode = 0; 
+for i = 1:100;
+    C = bem.simulate_spatiotemporal(rds,n_frames,duration,bootstrap_mode);
+end
+toc
+
+# with bootstrap mode
+tic
+bootstrap_mode = 1; 
+bem = bem.load_bootstrap(rds); # this loads the data so that we only read from disk once
+
+for i = 1:100;
+   C = bem.simulate_spatiotemporal(rds,n_frames,duration,bootstrap_mode);
+end
+toc
+``` 
+This improves the speed by more than a factor of 10.
+
+## Parallel mode
+Parallel mode allows for running `simulate_spatial` in parallel. Because
+`simulate_spatiotemporal` returns an array of temporal response, there is no explicit
+run_parallel parameter for this method. However, you can run `simulate_spatiotemporal` in a 
+parfor loop. To run `simulate_spatial` in parallel:
+```
+run_parallel = 0;
+C = bem.simulate_spatial(rds,N,bootstrap_mode,run_parallel);
+```
+As you can see, run_parallel can be used in conjunction with bootstrap_mode. This will generate
+monocular responses in parallel, and then save these to disk for easy reuse (e.g. for
+temporal convolutions).
