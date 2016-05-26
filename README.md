@@ -127,8 +127,8 @@ Will threshold and raise to power gamma.
 
 # Advanced (slightly experimental) capabilities
 ## Bootstrap mode
-Bootstrap mode is a way of doing temporal convolutions through resampling. This is, to my knowledge,
-the fastest way of running spatiotemporal simulations with space-time separable receptive fields.
+Bootstrap mode is a way of computing responses through resampling. This is, to my knowledge,
+the fastest way of running spatiotemporal simulations with spacetime separable receptive fields.
 Bootstrap mode works by pre-computing the spatial responses of cells and storing these to disk.
 When you then run a spatiotemporal simulation with a particular stimulus, BEMtoolbox will read the
 data from disk to generate your random sequence of RDSs. It is called bootstrap mode because what
@@ -156,6 +156,7 @@ disk with `load_bootstrap`; loading this explicitly means that you only have to 
 
 If you now want to simply compute the model responses using the saved values you can do:
 ```
+bem = bem.load_bootstrap(rds); # load bootstrapped responses
 N = 0;
 bootstrap_mode = 1;
 C = bem.simulate_spatial(rds,N,bootstrap_mode);
