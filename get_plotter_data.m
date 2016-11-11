@@ -45,7 +45,7 @@ function fileName = get_file_name(matFile);
 
     underscore_idx = strfind(matFile,'_');
     
-    fileName = matFile(1:(underscore_idx-1));
+    fileName = [matFile(1:(underscore_idx-1)),'.mat'];
 
 end
 
