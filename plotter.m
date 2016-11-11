@@ -793,7 +793,7 @@ function setup_path()
     end
     basePath = fullPath(1:allSlashes(end)-1);
     
-    if ~strfind(currentPath,basePath);
+    if isempty(strfind(currentPath,basePath));
         addpath(genpath(basePath));
     end
 
