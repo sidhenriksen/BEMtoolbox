@@ -12,7 +12,7 @@ function [allCell,allModel] = get_plotter_data()
 
     for k = 1:length(matFiles);
 
-        load(matFiles{k});
+        load([dataDir,'/',matFiles{k}]);
 
         contrastData(k).Cell = contrastCell;
 
