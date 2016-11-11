@@ -12,10 +12,8 @@ function plotter()
     allMenus = generate_menus();
     
     myFig = allMenus.myFig; % this is the parent figure
-                
-    runData = 0; % runSims
-    
-    [cellData,modelData] = get_all_data(runData); 
+        
+    [cellData,modelData] = get_plotter_data(); 
 
     allData.cellData = cellData;
     allData.modelData = modelData;
@@ -760,7 +758,7 @@ function bool = isaxis(x);
 end
 
 
-function bool = isfigure(x);
+function bool = isfigure(x)
     % returns 1 if x is a figure, 0 otherwise
     % usage: isFigure = isfigure(x);
     
