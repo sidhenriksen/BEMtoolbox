@@ -2,6 +2,11 @@ function plotter()
     %
     % Author: Sid Henriksen (2016). Email: sid.henriksen@gmail.com.
     %
+        
+    
+    setup_path();
+        
+    
     
     % this is a function that returns the menus packed in a single struct
     allMenus = generate_menus();
@@ -20,13 +25,13 @@ function plotter()
     %% This section initializes the plot and figure data
     
     % Set the x and y axis data
-    setappdata(myFig,'xdata','LowContrastSCFFSlope');
-    setappdata(myFig,'ydata','HighContrastSCFFSlope');
-    setappdata(myFig,'xCellOrModel','Cell');
+    setappdata(myFig,'xdata','DDI');
+    setappdata(myFig,'ydata','DDI');
+    setappdata(myFig,'xCellOrModel','Model');
     setappdata(myFig,'yCellOrModel','Cell');
     setappdata(myFig,'xy_errorbars',0);
 
-    populate_plot(myFig,[],'LowContrastSCFFSlope','Cell');
+    populate_plot(myFig,[],'DDI','Cell');
 
     set(gcf,'Color','White','windowbuttondownfcn',{@TC_callback});%,'windowkeypressfcn',{@keydown_callback});
 
@@ -772,5 +777,24 @@ function bool = isfigure(x);
     end
     
     
+
+end
+
+function setup_path()
+
+    fullPath = mfilename('fullpath');
+    currentPath = path;    
+    
+    
+    if isunix
+        allSlashes = strfind(fullPath,'/');
+    else
+        allSlashes = strfind(fullPath,'\');
+    end
+    basePath = fullPath(1:allSlashes(end)-1);
+    
+    if ~strfind(currentPath,basePath);
+        addpath(genpath(basePath));
+    end
 
 end
