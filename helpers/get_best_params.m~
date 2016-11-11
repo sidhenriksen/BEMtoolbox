@@ -1,0 +1,12 @@
+function [nExc,nInh] = get_best_params(NimCell)
+
+
+    nExcs = 1:7;
+    nInh = 1:6;
+
+    nRepeats = 5;
+    
+    optStruct.pTrain = 0.75; % 
+    NimModel = fit_NimModel(nExc,nInh,NimCell,optStruct);
+
+end
