@@ -309,6 +309,16 @@ function x = get_data(allData,key)
             RMSerror = sqrt(mean(totalVariance));
             x = (rMax-rMin)/(rMax-rMin + 2*RMSerror);
             
+        case 'LoHiSlope'
+            lo = strip_uc(currentData.spikeCountLowContrast);
+            hi = strip_uc(currentData.spikeCountHighContrast);
+            [~,x] = regression2(lo,hi);
+            
+        case 'LoHiR'
+            lo = strip_uc(currentData.spikeCountLowContrast);
+            hi = strip_uc(currentData.spikeCountHighContrast);
+            x = regression2(lo,hi);
+            
     end
 end
 
@@ -501,8 +511,9 @@ function x = get_tc_data(allData,key);
             
         case 'TotalFanoFactor'
             x = currentData.totalVariance./currentData.twopassSpikeCount;
-        
-    end    
+            
+
+    end
     
 end
 
@@ -547,11 +558,11 @@ end
 
 function label = get_label(type,cellOrModel)
 
-    expt = {'LowContrast','HighContrast','Twopass','DDI'};
-    exptMatch = {'Low contrast','High contrast','Two-pass','DDI'};
+    expt = {'LowContrast','HighContrast','Twopass','DDI','LoHi'};
+    exptMatch = {'Low contrast','High contrast','Two-pass','DDI','Low-High contrast'};
     
-    prop = {'FanoFactor','SCFFSlope','SCFFr','Variance','SpikeCount'};
-    propMatch = {'FF','SC-FF slope','SC-FF r','Variance','spike count'};
+    prop = {'FanoFactor','SCFFSlope','SCFFr','Variance','SpikeCount','Slope','R'};
+    propMatch = {'FF','SC-FF slope','SC-FF r','Variance','spike count','slope','r'};
     
     % not all fields will match this one... 
     suppProp = {'Internal','External','Total'};
@@ -634,27 +645,29 @@ function allMenus = generate_menus()
         %%%% X menu %%%%
         %% Model low contrast 
 
-        subMenus(k).MenuModelLowContrastFanoFactor = uimenu(menus{k},'Label','Low contrast Fano Factor','Checked','off','Callback',{@populate_plot,'LowContrastFanoFactor',callbackArgs{k}});
-        subMenus(k).MenuModelLowContrastSCFFSlope = uimenu(menus{k},'Label','Low contrast SC-FF slope','Checked','off','Callback',{@populate_plot,'LowContrastSCFFSlope',callbackArgs{k}});
-        subMenus(k).MenuModelLowContrastSCFFr = uimenu(menus{k},'Label','Low contrast SC-FF r','Checked','off','Callback',{@populate_plot,'LowContrastSCFFr',callbackArgs{k}});
+        subMenus(k).MenuLowContrastFanoFactor = uimenu(menus{k},'Label','Low contrast Fano Factor','Checked','off','Callback',{@populate_plot,'LowContrastFanoFactor',callbackArgs{k}});
+        subMenus(k).MenuLowContrastSCFFSlope = uimenu(menus{k},'Label','Low contrast SC-FF slope','Checked','off','Callback',{@populate_plot,'LowContrastSCFFSlope',callbackArgs{k}});
+        subMenus(k).MenuLowContrastSCFFr = uimenu(menus{k},'Label','Low contrast SC-FF r','Checked','off','Callback',{@populate_plot,'LowContrastSCFFr',callbackArgs{k}});        
 
+        subMenus(k).MenuHighContrastFanoFactor = uimenu(menus{k},'Label','High contrast Fano Factor','Checked','off','Callback',{@populate_plot,'HighContrastFanoFactor',callbackArgs{k}});
+        subMenus(k).MenuHighContrastSCFFSlope = uimenu(menus{k},'Label','High contrast SC-FF slope','Checked','off','Callback',{@populate_plot,'HighContrastSCFFSlope',callbackArgs{k}});
+        subMenus(k).MenuHighContrastSCFFr = uimenu(menus{k},'Label','High contrast SC-FF r','Checked','off','Callback',{@populate_plot,'HighContrastSCFFr',callbackArgs{k}});
+        
+        subMenus(k).MenuLoHiSlope = uimenu(menus{k},'Label','Low-high contrast slope','checked','off','callback',{@populate_plot,'LoHiSlope',callbackArgs{k}});
+        subMenus(k).MenuLoHir = uimenu(menus{k},'Label','Low-high contrast r','checked','off','callback',{@populate_plot,'LoHiR',callbackArgs{k}});
 
-        subMenus(k).MenuModelHighContrastFanoFactor = uimenu(menus{k},'Label','High contrast Fano Factor','Checked','off','Callback',{@populate_plot,'HighContrastFanoFactor',callbackArgs{k}});
-        subMenus(k).MenuModelHighContrastSCFFSlope = uimenu(menus{k},'Label','High contrast SC-FF slope','Checked','off','Callback',{@populate_plot,'HighContrastSCFFSlope',callbackArgs{k}});
-        subMenus(k).MenuModelHighContrastSCFFr = uimenu(menus{k},'Label','High contrast SC-FF r','Checked','off','Callback',{@populate_plot,'HighContrastSCFFr',callbackArgs{k}});
+        subMenus(k).MenuTwopassInternalFanoFactor = uimenu(menus{k},'Label','2P internal FF','Checked','off','Callback',{@populate_plot,'TwopassInternalFanoFactor',callbackArgs{k}});
+        subMenus(k).MenuTwopassExternalFanoFactor = uimenu(menus{k},'Label','2P external FF','Checked','off','Callback',{@populate_plot,'TwopassExternalFanoFactor',callbackArgs{k}});
+        subMenus(k).MenuTwopassTotalFanoFactor = uimenu(menus{k},'Label','2P total FF','Checked','off','Callback',{@populate_plot,'TwopassTotalFanoFactor',callbackArgs{k}});
 
-        subMenus(k).MenuModelTwopassInternalFanoFactor = uimenu(menus{k},'Label','2P internal FF','Checked','off','Callback',{@populate_plot,'TwopassInternalFanoFactor',callbackArgs{k}});
-        subMenus(k).MenuModelTwopassExternalFanoFactor = uimenu(menus{k},'Label','2P external FF','Checked','off','Callback',{@populate_plot,'TwopassExternalFanoFactor',callbackArgs{k}});
-        subMenus(k).MenuModelTwopassTotalFanoFactor = uimenu(menus{k},'Label','2P total FF','Checked','off','Callback',{@populate_plot,'TwopassTotalFanoFactor',callbackArgs{k}});
+        subMenus(k).MenuTwopassInternalVariance = uimenu(menus{k},'Label','2P internal variance','Checked','off','Callback',{@populate_plot,'TwopassInternalVariance',callbackArgs{k}});
+        subMenus(k).MenuTwopassExternalVariance = uimenu(menus{k},'Label','2P external variance','Checked','off','Callback',{@populate_plot,'TwopassExternalVariance',callbackArgs{k}});
+        subMenus(k).MenuTwopassTotalVariance = uimenu(menus{k},'Label','2P total variance','Checked','off','Callback',{@populate_plot,'TwopassTotalVariance',callbackArgs{k}});
 
-        subMenus(k).MenuModelTwopassInternalVariance = uimenu(menus{k},'Label','2P internal variance','Checked','off','Callback',{@populate_plot,'TwopassInternalVariance',callbackArgs{k}});
-        subMenus(k).MenuModelTwopassExternalVariance = uimenu(menus{k},'Label','2P external variance','Checked','off','Callback',{@populate_plot,'TwopassExternalVariance',callbackArgs{k}});
-        subMenus(k).MenuModelTwopassTotalVariance = uimenu(menus{k},'Label','2P total variance','Checked','off','Callback',{@populate_plot,'TwopassTotalVariance',callbackArgs{k}});
+        subMenus(k).MenuTwopassSCFFSlope = uimenu(menus{k},'Label','2P SC-FF slope','Checked','off','Callback',{@populate_plot,'TwopassTotalSCFFSlope',callbackArgs{k}});
+        subMenus(k).MenuTwopassSCFFr = uimenu(menus{k},'Label','2P SC-FF r','Checked','off','Callback',{@populate_plot,'TwopassTotalSCFFr',callbackArgs{k}});
 
-        subMenus(k).MenuModelTwopassSCFFSlope = uimenu(menus{k},'Label','2P SC-FF slope','Checked','off','Callback',{@populate_plot,'TwopassTotalSCFFSlope',callbackArgs{k}});
-        subMenus(k).MenuModelTwopassSCFFr = uimenu(menus{k},'Label','2P SC-FF r','Checked','off','Callback',{@populate_plot,'TwopassTotalSCFFr',callbackArgs{k}});
-
-        subMenus(k).MenuModelDDI = uimenu(menus{k},'Label','DDI','Checked','off','Callback',{@populate_plot,'DDI',callbackArgs{k}});
+        subMenus(k).MenuDDI = uimenu(menus{k},'Label','DDI','Checked','off','Callback',{@populate_plot,'DDI',callbackArgs{k}});
     end
         
     %uimenu(mh,'Label',sprintf('\n'));
