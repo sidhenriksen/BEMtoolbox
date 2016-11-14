@@ -791,8 +791,10 @@ function bool = isfigure(x)
 
 end
 
-function equalise_axes(myFig,evt)
-
+function equalise_axes(menuAx,evt)
+    
+    myFig = menuAx;
+    
     while ~strcmp(get(myFig,'type'),'figure');
         
         myFig = get(myFig,'Parent');
@@ -805,7 +807,9 @@ function equalise_axes(myFig,evt)
     
     ch = get(ax,'children');
     
-    menuAx = evt.Source;
+    if ~isempty(evt)
+        menuAx = evt.Source;
+    end
     
     if ~equalAxes
         xData = arrayfun(@(x)get(x,'XData'),ch);
