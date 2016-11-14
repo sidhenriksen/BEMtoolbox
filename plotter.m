@@ -585,9 +585,9 @@ function DDI = compute_DDI(allData,key)
         currentData = allData.modelData(cellNumber);
     end
         
-    totalVariance = strip_uc(currentData.totalVariance);
+    totalVariance = strip_uc(currentData.totalSqrtVariance);
     
-    spikeCount = strip_uc(currentData.twopassSpikeCount);
+    spikeCount = strip_uc(currentData.twopassSqrtSpikeCount);
     
     rMax = max(spikeCount);
     
