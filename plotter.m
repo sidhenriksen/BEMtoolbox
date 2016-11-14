@@ -5,10 +5,18 @@ function plotter()
         
     
     setup_path();
-        
     
-    
-    % this is a function that returns the menus packed in a single struct
+    myFig = init_figure();
+
+    populate_plot(myFig,[],'DDI','Cell');
+
+    set(gcf,'Color','White','windowbuttondownfcn',{@TC_callback});%,'windowkeypressfcn',{@keydown_callback});
+
+end
+
+function myFig = init_figure()
+
+  % this is a function that returns the menus packed in a single struct
     allMenus = generate_menus();
     
     myFig = allMenus.myFig; % this is the parent figure
@@ -18,21 +26,17 @@ function plotter()
     allData.cellData = cellData;
     allData.modelData = modelData;
     
-    setappdata(myFig,'allData',allData);    
-        
-    %% This section initializes the plot and figure data
+    setappdata(myFig,'allData',allData);
+    
     
     % Set the x and y axis data
     setappdata(myFig,'xdata','DDI');
     setappdata(myFig,'ydata','DDI');
     setappdata(myFig,'xCellOrModel','Model');
     setappdata(myFig,'yCellOrModel','Cell');
-    setappdata(myFig,'xy_errorbars',0);
-
-    populate_plot(myFig,[],'DDI','Cell');
-
-    set(gcf,'Color','White','windowbuttondownfcn',{@TC_callback});%,'windowkeypressfcn',{@keydown_callback});
-
+    setappdata(myFig,'EqualAxes',0);
+    
+    
 end
 
 function populate_plot(myMenu,evt,dataType,cellOrModel)
@@ -106,6 +110,8 @@ function populate_plot(myMenu,evt,dataType,cellOrModel)
 
     
 end
+
+
 
 
 
@@ -342,6 +348,7 @@ function TC_callback(myFig,evt,dataType);
         tcMenus = generate_tc_menus(figData.TCHandle);
         
         setappdata(figData.TCHandle,'LegendToggled',0);
+                
                         
     end
     
@@ -607,13 +614,14 @@ function allMenus = generate_menus()
     
     mh = uimenu(myFig,'Label','Plot');
     
+    
     xMain = uimenu(mh,'Label','x-axis');
     xMenuModel = uimenu(mh,'Label','Model','UserData','x');    
     xMenuCell= uimenu(mh,'Label','Cell','UserData','x');
     
-    seperator = uimenu(mh,'Label',sprintf('\n'));
+    %seperator = uimenu(mh,'Label',sprintf('\n'));
     
-    yMain = uimenu(mh,'Label','y-axis');    
+    yMain = uimenu(mh,'Label','y-axis','separator','on');    
     yMenuModel = uimenu(mh,'Label','Model','UserData','y');    
     yMenuCell= uimenu(mh,'Label','Cell','UserData','y');
     
@@ -648,6 +656,10 @@ function allMenus = generate_menus()
 
         subMenus(k).MenuModelDDI = uimenu(menus{k},'Label','DDI','Checked','off','Callback',{@populate_plot,'DDI',callbackArgs{k}});
     end
+        
+    %uimenu(mh,'Label',sprintf('\n'));
+    
+    uimenu(mh,'Label','Toggle equal axes','Checked','off','Callback',{@equalise_axes},'separator','on');
     
     allMenus = packWorkspace();
 
@@ -655,6 +667,7 @@ end
 
 function tcMenus = generate_tc_menus(myFig)
     tcMenu = uimenu(myFig,'Label','Tuning curves');
+    
     
     lowContrastSpikeCount = uimenu(tcMenu,'Label','Low contrast spike count','Callback',{@TC_callback,'LowContrastSpikeCount'});
     lowContrastVariance = uimenu(tcMenu,'Label','Low contrast variance','Callback',{@TC_callback,'LowContrastVariance'});
@@ -775,6 +788,48 @@ function bool = isfigure(x)
     end
     
     
+
+end
+
+function equalise_axes(myFig,evt)
+
+    while ~strcmp(get(myFig,'type'),'figure');
+        
+        myFig = get(myFig,'Parent');
+        
+    end
+    
+    equalAxes = getappdata(myFig,'EqualAxes');
+    
+    ax = get_axis(myFig);
+    
+    ch = get(ax,'children');
+    
+    menuAx = evt.Source;
+    
+    if ~equalAxes
+        xData = arrayfun(@(x)get(x,'XData'),ch);
+        yData = arrayfun(@(y)get(y,'YData'),ch);
+
+        lims = [min([xData;yData]),max([xData;yData])];
+        dx = range(lims)*0.05;
+        lims = lims + [-dx,dx];
+        
+        xlim(ax,lims);
+        ylim(ax,lims);
+        
+        setappdata(myFig,'EqualAxes',1);
+        set(menuAx,'checked','on');
+        
+    else
+        set(ax,'XLimMode','auto');
+       
+        set(ax,'YLimMode','auto');
+       
+        setappdata(myFig,'EqualAxes',0);
+        set(menuAx,'checked','off');
+    end
+        
 
 end
 
