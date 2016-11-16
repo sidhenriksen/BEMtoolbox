@@ -519,7 +519,7 @@ function x = get_tc_data(allData,key);
         case 'ExternalVariance'
             x = currentData.totalVariance - currentData.internalVariance;
             
-        case 'Total Variance'
+        case 'TotalVariance'
             x = currentData.totalVariance;
             
         case 'InternalFanoFactor'
