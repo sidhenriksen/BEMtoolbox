@@ -87,8 +87,7 @@ function populate_plot(myMenu,evt,dataType,cellOrModel)
         
     %% Plot the data
     plot_data(myFig);
-    plot_BEM(myFig);
-
+    
     %% Adjust the ticks appropriately
     if strcmp(axchange,'x');
         mainChildren = xmainChildren;
@@ -180,8 +179,12 @@ function plot_data(myFig)
 
         if strcmp(currentMonkey,monkeys{1})
             markerStyle = 's';
-        else
+        elseif strcmp(currentMonkey,monkeys{2});
             markerStyle = 'o';
+        else
+            markerStyle='^';
+            currentColor=[0.2,0.2,0.8];
+            currentDDI=0.65;
         end
 
         plot(x,y,'k','marker',markerStyle,'markersize',...
@@ -901,26 +904,5 @@ function setup_path()
     if isempty(strfind(currentPath,basePath));
         addpath(genpath(basePath));
     end
-
-end
-
-function plot_BEM(myFig);
-
-    % do this properly...
-    bemFile = 'fit_data/energymodel_fit.mat';
-    load(bemFile);
-    bemData = allData;
-    
-    xType = getappdata(myFig,'xdata');
-    yType = getappdata(myFig,'ydata');
-    
-    xKey = {'Model',1,xType};
-    yKey = {'Model',1,yType};
-    
-    x = get_data(bemData,xKey);
-    y = get_data(bemData,yKey);
-    
-    plot(x,y,'^ k','markerfacecolor',[0.1,0.1,0.8],'markersize',15);
-    
 
 end
