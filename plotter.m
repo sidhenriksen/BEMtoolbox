@@ -203,6 +203,12 @@ function plot_data(myFig)
     % Set XYData!
     XYData.x = X;
     XYData.y = Y;
+    
+    [r,p] = corrcoef(ascolumn(Y),ascolumn(X));
+    r = r(2); p = p(2);
+    
+    title(gca,sprintf('r=%.2f,p=%.3f',r,p),'fontsize',16)
+    
     setappdata(gca,'XYData',XYData);
     
     set_axis_props(myFig);
@@ -228,8 +234,8 @@ function x = get_data(allData,key)
 
             currentVar = strip_uc(currentData.varianceLowContrast);
             currentSC = strip_uc(currentData.spikeCountLowContrast);
-            x = mean(currentVar./currentSC);
-            %x = mean(currentVar)./mean(currentSC);
+            %x = mean(currentVar./currentSC);
+            x = mean(currentVar)./mean(currentSC);
 
         case 'LowContrastSCFFSlope'
 
@@ -249,7 +255,8 @@ function x = get_data(allData,key)
 
             currentVar = strip_uc(currentData.varianceHighContrast);
             currentSC = strip_uc(currentData.spikeCountHighContrast);
-            x = mean(currentVar(:))./mean(currentSC(:));
+            x = mean(currentVar)./mean(currentSC);
+            
 
         case 'HighContrastSCFFSlope'
             
@@ -279,23 +286,23 @@ function x = get_data(allData,key)
         case 'TwopassInternalFanoFactor'
             internalVariance = strip_uc(currentData.internalVariance);
             spikeCount = strip_uc(currentData.twopassSpikeCount);
-            %x = mean(internalVariance)./mean(spikeCount);
-            x = mean(internalVariance./spikeCount);
-            % not sure if this should be ratio of the means or the mean of the ratios            
+            x = mean(internalVariance)./mean(spikeCount);
+            %x = mean(internalVariance./spikeCount);
+            
             
         case 'TwopassExternalFanoFactor'
             internalVariance = strip_uc(currentData.internalVariance);
             totalVariance = strip_uc(currentData.totalVariance);
             externalVariance = totalVariance-internalVariance;
             spikeCount = strip_uc(currentData.twopassSpikeCount);
-            x = mean(externalVariance./spikeCount);
-            %x = mean(externalVariance)./mean(spikeCount);
+            %x = mean(externalVariance./spikeCount);
+            x = mean(externalVariance)./mean(spikeCount);
             
         case 'TwopassTotalFanoFactor'
             totalVariance = strip_uc(currentData.totalVariance);
             spikeCount = strip_uc(currentData.twopassSpikeCount);
-            x = mean(totalVariance./spikeCount);
-            %x = mean(totalVariance)./mean(spikeCount);
+            %x = mean(totalVariance./spikeCount);
+            x = mean(totalVariance)./mean(spikeCount);
             
         case 'TwopassTotalSCFFSlope'
             totalVariance = strip_uc(currentData.totalVariance);
@@ -308,6 +315,20 @@ function x = get_data(allData,key)
             spikeCount = strip_uc(currentData.twopassSpikeCount);
             FF = totalVariance./spikeCount;
             x = regression2(FF,spikeCount);
+            
+        case 'TwopassBrennyFactor'
+            totalVariance = strip_uc(currentData.totalVariance);
+            internalVariance = strip_uc(currentData.internalVariance);
+            externalVariance = totalVariance - internalVariance;
+            spikeCount = strip_uc(currentData.twopassSpikeCount);
+            x = mean(externalVariance)./(mean(spikeCount).^2);
+            
+        case 'TwopassExternalSCBFSlope'
+              totalVariance = strip_uc(currentData.totalVariance);
+            internalVariance = strip_uc(currentData.internalVariance);
+            externalVariance = totalVariance - internalVariance;
+            spikeCount = strip_uc(currentData.twopassSpikeCount);
+            [~,x] = regression2(externalVariance,spikeCount.^2);            
             
         case 'DDI'
             totalVariance = strip_uc(currentData.totalVariance);
@@ -339,6 +360,10 @@ function x = get_data(allData,key)
             internalVariance = strip_uc(currentData.internalVariance);
             totalVariance =  strip_uc(currentData.totalVariance);
             x = sum(totalVariance-internalVariance)/sum(totalVariance);
+            
+
+
+        
             
     end
 end
@@ -582,8 +607,8 @@ function label = get_label(type,cellOrModel)
     expt = {'LowContrast','HighContrast','Twopass','DDI','LoHi','Mean','Proportion'};
     exptMatch = {'Low contrast','High contrast','Two-pass','DDI','Low-High contrast','Mean','Proportion'};
     
-    prop = {'FanoFactor','SCFFSlope','SCFFr','Variance','SpikeCount','Slope','R'};
-    propMatch = {'FF','SC-FF slope','SC-FF r','Variance','spike count','slope','r'};
+    prop = {'FanoFactor','SCFFSlope','SCFFr','Variance','SpikeCount','Slope','R','BrennyFactor'};
+    propMatch = {'FF','SC-FF slope','SC-FF r','Variance','spike count','slope','r','Brenny Factor'};
     
     % not all fields will match this one... 
     suppProp = {'Internal','External','Total'};
@@ -686,10 +711,13 @@ function allMenus = generate_menus()
         subMenus(k).MenuTwopassTotalVariance = uimenu(menus{k},'Label','2P total variance','Checked','off','Callback',{@populate_plot,'TwopassTotalVariance',callbackArgs{k}});
         
         submenus(k).MenuTwopassProportionInternal = uimenu(menus{k},'Label','2P proportion internal variance','Checked','off','separator','on','Callback',{@populate_plot,'ProportionInternalVariance',callbackArgs{k}});
-        submenus(k).MenuTwopassProportionExternal = uimenu(menus{k},'Label','2P proportion external variance','Checked','off','Callback',{@populate_plot,'ProportionExternalVariance',callbackArgs{k}});
+        submenus(k).MenuTwopassProportionExternal = uimenu(menus{k},'Label','2P proportion external variance','Checked','off','Callback',{@populate_plot,'ProportionExternalVariance',callbackArgs{k}});        
 
         subMenus(k).MenuTwopassSCFFSlope = uimenu(menus{k},'Label','2P SC-FF slope','Checked','off','separator','on','Callback',{@populate_plot,'TwopassTotalSCFFSlope',callbackArgs{k}});
         subMenus(k).MenuTwopassSCFFr = uimenu(menus{k},'Label','2P SC-FF r','Checked','off','Callback',{@populate_plot,'TwopassTotalSCFFr',callbackArgs{k}});
+        
+        submenus(k).MenuTwopassBrennyFactor = uimenu(menus{k},'Label','Brenny Factor','Checked','off','separator','on','Callback',{@populate_plot,'TwopassBrennyFactor',callbackArgs{k}});
+        submenus(k).MenuTwopassSCBFSlope = uimenu(menus{k},'Label','SC-BF slope','Checked','off','separator','off','Callback',{@populate_plot,'TwopassExternalSCBFSlope',callbackArgs{k}});
 
         subMenus(k).MenuDDI = uimenu(menus{k},'Label','DDI','Checked','off','separator','on','Callback',{@populate_plot,'DDI',callbackArgs{k}});
         subMenus(k).MenuMeanSpikeCount = uimenu(menus{k},'Label','Mean spike count','Checked','off','Callback',{@populate_plot,'MeanSpikeCount',callbackArgs{k}});
