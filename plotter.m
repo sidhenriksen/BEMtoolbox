@@ -323,6 +323,16 @@ function x = get_data(allData,key)
             spikeCount = strip_uc(currentData.twopassSpikeCount);
             x = mean(externalVariance)./(mean(spikeCount).^2);
             
+        case 'TwopassBrennyFactorPrefDisp'
+            totalVariance = strip_uc(currentData.totalVariance);
+            internalVariance = strip_uc(currentData.internalVariance);
+            externalVariance = totalVariance - internalVariance;
+            spikeCount = strip_uc(currentData.twopassSpikeCount);
+            
+            [~,prefDispIdx] = max(spikeCount);
+            
+            x = mean(externalVariance(prefDispIdx))./(mean(spikeCount(prefDispIdx)).^2);            
+            
         case 'TwopassExternalSCBFSlope'
               totalVariance = strip_uc(currentData.totalVariance);
             internalVariance = strip_uc(currentData.internalVariance);
@@ -717,8 +727,9 @@ function allMenus = generate_menus()
         subMenus(k).MenuTwopassSCFFr = uimenu(menus{k},'Label','2P SC-FF r','Checked','off','Callback',{@populate_plot,'TwopassTotalSCFFr',callbackArgs{k}});
         
         submenus(k).MenuTwopassBrennyFactor = uimenu(menus{k},'Label','Brenny Factor','Checked','off','separator','on','Callback',{@populate_plot,'TwopassBrennyFactor',callbackArgs{k}});
+        submenus(k).MenuTwopassBrennyFactorPrefDisp = uimenu(menus{k},'Label','Brenny Factor pref dx','Checked','off','separator','off','Callback',{@populate_plot,'TwopassBrennyFactorPrefDisp',callbackArgs{k}});
         submenus(k).MenuTwopassSCBFSlope = uimenu(menus{k},'Label','SC-BF slope','Checked','off','separator','off','Callback',{@populate_plot,'TwopassExternalSCBFSlope',callbackArgs{k}});
-
+        
         subMenus(k).MenuDDI = uimenu(menus{k},'Label','DDI','Checked','off','separator','on','Callback',{@populate_plot,'DDI',callbackArgs{k}});
         subMenus(k).MenuMeanSpikeCount = uimenu(menus{k},'Label','Mean spike count','Checked','off','Callback',{@populate_plot,'MeanSpikeCount',callbackArgs{k}});
                 
@@ -727,6 +738,9 @@ function allMenus = generate_menus()
     %uimenu(mh,'Label',sprintf('\n'));
     
     uimenu(mh,'Label','Toggle equal axes','Checked','off','Callback',{@equalise_axes},'separator','on');
+    
+    uimenu(mh,'Label','Other plots','separator','on')
+    uimenu(mh,'Label','Bruce I','callback',{@plot_bruce1});
     
     allMenus = packWorkspace();
 
@@ -933,4 +947,65 @@ function setup_path()
         addpath(genpath(basePath));
     end
 
+end
+
+
+function plot_bruce1(myFig,evt);
+    
+    while ~isfigure(myFig);
+        
+        myFig = get(myFig,'Parent');
+                
+    end
+      
+    data = getappdata(myFig);
+    
+    modelData = data.allData.modelData;
+    cellData = data.allData.cellData;
+    
+    totalModelVariance = [];
+    modelSpikeCount = [];
+    
+    totalCellVariance = [];
+    cellSpikeCount = [];
+    
+    for k = 1:length(modelData);
+        
+        totalModelVariance = [totalModelVariance;strip_uc(modelData(k).totalVariance)];
+        
+        modelSpikeCount = [modelSpikeCount;strip_uc(modelData(k).twopassSpikeCount)];
+        
+        totalCellVariance = [totalCellVariance;strip_uc(cellData(k).totalVariance)];
+        
+        cellSpikeCount = [cellSpikeCount;strip_uc(cellData(k).twopassSpikeCount)];
+    end
+    
+    modelFF = totalModelVariance./modelSpikeCount;
+    cellFF = totalCellVariance./cellSpikeCount;
+        
+    myAlpha = 0.1;
+        
+    figure(); hold on;
+    
+    t = linspace(0,2*pi,21);
+    r = 0.15;
+    
+    for k = 1:length(cellSpikeCount);
+        
+        p1=patch(r*cos(t)+cellSpikeCount(k),r*sin(t)+cellFF(k),'b','edgecolor','none','facealpha',myAlpha);
+        
+        %alpha(p1,myAlpha);
+        
+        p2 = patch(r*cos(t)+modelSpikeCount(k),r*sin(t)+modelFF(k),'r','edgecolor','none','facealpha',myAlpha);
+        %alpha(p2,myAlpha)
+    end
+    
+    xlim([-0.25,5]);
+    ylim([-0.25.5]);
+    xlabel('Mean spike count','fontsize',16)
+
+    ylabel('Total variance','fontsize',16)
+
+    legend('Cell','Model')
+    set(gcf,'color','white')
 end
