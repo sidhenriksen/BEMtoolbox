@@ -79,14 +79,18 @@ function igf = group_data(G,trialMask,windowSize,lag)
     igf = zeros(1,length(trialIdx)*windowSize);
     
     for k = 1:length(trialIdx);        
-        
+                
         start = trialIdx(k)+lag;
         
-        stop = start+windowSize-1;
+        if start > length(trialMask);
+            continue
+        end
+        
+        stop = min(start+windowSize-1,length(G));
         
         igfStart = (k-1)*windowSize + 1;
         
-        igfStop = igfStart+windowSize-1;
+        igfStop = min(igfStart+windowSize-1,length(igf));
         
         igf(igfStart:igfStop) = G(start:stop);
         

@@ -13,7 +13,7 @@ function twopassData = get_twopass_data(NimStruct)
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%        
     
-    [Vint,Vtotal,tc] = run_2pass(NimStruct,RUNDUR,WINDOWSIZE,LAG);
+    [Vint,Vtotal,tc,sqrtMeans,sqrtVars] = run_2pass(NimStruct,RUNDUR,WINDOWSIZE,LAG);
 
 
     twopassData.internalVariance = Vint;
@@ -21,5 +21,9 @@ function twopassData = get_twopass_data(NimStruct)
     twopassData.totalVariance = Vtotal;
     
     twopassData.twopassSpikeCount = tc;
-        
+    
+    twopassData.twopassSqrtSpikeCount = sqrtMeans;
+    
+    twopassData.totalSqrtVariance = sqrtVars;
+    
 end

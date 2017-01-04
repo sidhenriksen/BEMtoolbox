@@ -9,7 +9,7 @@ function [nExc,nInh] = grid_search(NimCell)
 
     nRepeats = 3;
     
-    nExcs = 1:7;
+    nExcs = 1:8;
     
     nInh = 0:5;        
 

@@ -1,16 +1,20 @@
-function [allCell,allModel] = get_plotter_data()
+function [allCell,allModel] = get_plotter_data(dataDir)
     % Loads the data needed for the plotter
         
     
-    dataDir = get_data_dir();
+    if ~nargin
+        dataDir = get_data_dir();
+    end
+            
     
-    matFiles = get_mat_files(dataDir);        
+    matFiles = get_mat_files(dataDir);
+    %matFiles = matFiles(~find_string_in_cell(matFiles,'energymodel_fit.mat',1));
     
     contrastData = struct();
     
     twopassData = struct();
 
-    for k = 1:length(matFiles);
+    for k = 1:length(matFiles);                        
 
         load([dataDir,'/',matFiles{k}]);
 
