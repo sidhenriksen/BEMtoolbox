@@ -969,3 +969,64 @@ function r = compute_r(x,y);
     r = regression2(y,x);
 
 end
+
+
+function plot_bruce1(myFig,evt);
+    
+    while ~isfigure(myFig);
+        
+        myFig = get(myFig,'Parent');
+                
+    end
+      
+    data = getappdata(myFig);
+    
+    modelData = data.allData.modelData;
+    cellData = data.allData.cellData;
+    
+    totalModelVariance = [];
+    modelSpikeCount = [];
+    
+    totalCellVariance = [];
+    cellSpikeCount = [];
+    
+    for k = 1:length(modelData);
+        
+        totalModelVariance = [totalModelVariance;strip_uc(modelData(k).totalVariance)];
+        
+        modelSpikeCount = [modelSpikeCount;strip_uc(modelData(k).twopassSpikeCount)];
+        
+        totalCellVariance = [totalCellVariance;strip_uc(cellData(k).totalVariance)];
+        
+        cellSpikeCount = [cellSpikeCount;strip_uc(cellData(k).twopassSpikeCount)];
+    end
+    
+    modelFF = totalModelVariance./modelSpikeCount;
+    cellFF = totalCellVariance./cellSpikeCount;
+        
+    myAlpha = 0.1;
+        
+    figure(); hold on;
+    
+    t = linspace(0,2*pi,21);
+    r = 0.15;
+    
+    for k = 1:length(cellSpikeCount);
+        
+        p1=patch(r*cos(t)+cellSpikeCount(k),r*sin(t)+cellFF(k),'b','edgecolor','none','facealpha',myAlpha);
+        
+        %alpha(p1,myAlpha);
+        
+        p2 = patch(r*cos(t)+modelSpikeCount(k),r*sin(t)+modelFF(k),'r','edgecolor','none','facealpha',myAlpha);
+        %alpha(p2,myAlpha)
+    end
+    
+    xlim([-0.25,5]);
+    ylim([-0.25.5]);
+    xlabel('Mean spike count','fontsize',16)
+
+    ylabel('Total variance','fontsize',16)
+
+    legend('Cell','Model')
+    set(gcf,'color','white')
+end 
