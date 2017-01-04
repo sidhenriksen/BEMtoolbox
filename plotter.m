@@ -1031,6 +1031,3 @@ function plot_bruce1(myFig,evt);
     legend('Cell','Model')
     set(gcf,'color','white')
 end 
-=======
-end
->>>>>>> 1c10af7dee1cbbff8d4d6a086a06b7cef00e00be
