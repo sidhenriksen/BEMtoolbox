@@ -1,0 +1,87 @@
+
+
+function fig1()
+bem = BEMunit();
+
+nx = 150;
+bem.Nx = nx;
+bem.Ny = nx;
+bem = bem.update(); 
+
+rds = RDS();
+rds.Nx = nx;
+rds.Ny = nx;
+
+dxs = -15:15;
+
+Ms = zeros(3,length(dxs));
+Vs = zeros(3,length(dxs));
+for k = 1:length(dxs);
+    
+    [M,V] = compute_tc(bem,rds,-1,dxs(k));
+    Ms(1,k) = M;
+    Vs(1,k) = V;
+    
+    [M,V] = compute_tc(bem,rds,1,dxs(k));
+    Ms(3,k) = M;
+    Vs(3,k) = V;
+    
+end
+
+[M,V] = compute_tc(bem,rds,0,0);
+Ms(2,:) = M;
+Vs(2,:) = V;
+
+
+figure();
+
+
+lw = 3;
+
+subplot(1,3,1); hold on;
+plot(dxs,Ms(1,:),'k -','linewidth',lw);
+plot(dxs,Ms(2,:),'-','linewidth',lw,'color',[0.6,0.6,0.6]);
+plot(dxs,Ms(3,:),'r -','linewidth',lw);
+%title('Mean spike count','fontsize',16);
+xlabel('Disparity (pixels)','fontsize',16)
+ylabel('Mean rate','fontsize',16)
+
+subplot(1,3,2); hold on;
+plot(dxs,Vs(1,:),'k -','linewidth',lw);
+plot(dxs,Vs(2,:),'-','linewidth',lw,'color',[0.6,0.6,0.6]);
+plot(dxs,Vs(3,:),'r -','linewidth',lw);
+xlabel('Disparity (pixels)','fontsize',16)
+ylabel('Rate variance','fontsize',16)
+
+ff = Vs./Ms;
+subplot(1,3,3); hold on;
+plot(dxs,ff(1,:),'k -','linewidth',lw);
+plot(dxs,ff(2,:),'-','linewidth',lw,'color',[0.6,0.6,0.6]);
+plot(dxs,ff(3,:),'r -','linewidth',lw);
+xlabel('Disparity (pixels)','fontsize',16)
+ylabel('Fano Factor','fontsize',16)
+ylim([1,2])
+
+end
+
+
+function [M,V] = compute_tc(bem,rds,corr,dx)
+
+    N = 1e3;
+    
+    bootstrapMode = 0;
+    
+    runParallel = 1;
+    
+    rds.correlation = corr;
+    
+    rds.dx = dx;
+    
+    C = bem.simulate_spatial(rds,N,bootstrapMode,runParallel) ./250;
+    
+    M = mean(C);
+    
+    V = var(C);
+
+end    
+    

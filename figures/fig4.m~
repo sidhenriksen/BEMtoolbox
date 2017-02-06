@@ -1,0 +1,21 @@
+
+
+function fig4()
+
+
+    allCells = get_plotter_data();
+    
+    
+
+end
+
+function slope = get_slope(myCell)
+
+
+    externalVariance = myCell.totalVariance-myCell.internalVariance;
+    
+    spikeCount = myCell.twopassSpikeCount;
+    
+    
+    
+end
