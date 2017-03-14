@@ -16,9 +16,9 @@ function plot_variance_residuals(allCells,allModels)
 end
 
 function plot_data(allCells,allModels,k)
-    externalVarianceCell = strip_uc(allCells(k).totalVariance - allCells(k).internalVariance);
+    externalVarianceCell = (allCells(k).totalVariance - allCells(k).internalVariance);
 
-    externalVarianceModel = strip_uc(allModels(k).totalVariance - allModels(k).internalVariance);
+    externalVarianceModel = (allModels(k).totalVariance - allModels(k).internalVariance);
 
     spikeCountCell = strip_uc(allCells(k).twopassSpikeCount);
 
@@ -27,16 +27,45 @@ function plot_data(allCells,allModels,k)
     meanCountDifference = ascolumn(spikeCountCell-spikeCountModel);
     %meanSquaredCountDifference = ascolumn(spikeCountCell.^2-spikeCountModel.^2);
 
-    y = ascolumn(externalVarianceCell)-ascolumn(externalVarianceModel);
+    
+    
+    
+    y = ascolumn(strip_uc(externalVarianceCell - externalVarianceModel));
 
     X1 = meanCountDifference;
     
-    [r,m,b] = regression2(y,X1);        
+    noOffset = 1;
+    [r,m,b] = regression2(y,X1,noOffset); 
     
     xrange = range(X1);
     t = linspace(min(X1)-xrange*0.1,max(X1)+xrange*0.1,51);
     g = b + m*t;
 
+    externalVarianceRegModel = restore_uc(X1*m) + externalVarianceModel;
+
+    allValues = [externalVarianceCell(:);externalVarianceModel(:);externalVarianceRegModel(:)];
+    
+    lims = [min(allValues(:)),max(allValues(:))];
+    
+    ax1 = subplot(2,2,1);
+    cla; hold on;
+    plot_tc(externalVarianceCell,ax1);
+    title('External variance (cell)','fontsize',14);
+    ylim(lims);
+    
+    ax2 = subplot(2,2,2);
+    cla; hold on;
+    plot_tc(externalVarianceModel,ax2);
+    title('External variance (model)','fontsize',14);
+    ylim(lims);
+    
+    ax3 = subplot(2,2,3);
+    cla; hold on;
+    plot_tc(externalVarianceRegModel,ax3);
+    title('External variance (regression model)','fontsize',14);
+    ylim(lims);
+    
+    subplot(2,2,4);
     plot(X1,y,'k o','markersize',7,'markerfacecolor','k'); hold on;
     plot(t,g,'r -','linewidth',2);
     hold off;
@@ -71,5 +100,20 @@ function update_figure(fig,evt)
     setappdata(fig,'ctr',k);
             
     
+
+end
+
+
+function y = restore_uc(x)
+
+
+    N = (length(x)-1)/2;
+    
+    uc = x(end);
+    x = x(1:end-1);
+        
+    y(1,:) = x(1:2:end);
+    y(2,:) = uc;
+    y(3,:) = x(2:2:end);
 
 end
