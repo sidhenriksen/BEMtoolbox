@@ -114,7 +114,6 @@ function C = simulate_spatiotemporal(bem,generator,n_frames,duration,bootstrap_m
                 Rs(k,:) = R_rep(:)*dx*dy;
             end
         end
-            
     end
     
     

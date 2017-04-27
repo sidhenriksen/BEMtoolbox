@@ -1,4 +1,4 @@
-function bem = modify_subunit(bem,k_sub,varargin)
+function varargout = modify_subunit(bem,k_sub,varargin)
     % Usage: bem = bem.modify_subunit(k_sub,<attributes>)
     % Where k_sub is the index of the subunit to be modified
     %
@@ -30,5 +30,10 @@ function bem = modify_subunit(bem,k_sub,varargin)
     end
 
     bem.subunits(k_sub).rf_params = rf;
-    bem = bem.update();
+    bem.update();
+    
+    if nargout
+        varargout = {bem};
+    end
+    
 end

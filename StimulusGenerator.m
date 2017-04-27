@@ -1,4 +1,4 @@
-classdef StimulusGenerator
+classdef StimulusGenerator < handle
    
     properties
         
@@ -167,6 +167,17 @@ classdef StimulusGenerator
             subplot(1,2,2);
             imagesc(R);
             set(gca,'clim',[cmin,cmax],'xtick',[],'ytick',[]);
+            
+        end
+        
+        function newGenerator = copy(generator)
+           
+            newGenerator = feval(class(generator));
+            
+            p = properties(generator);
+            for i = 1:length(p)
+                newGenerator.(p{i}) = generator.(p{i});
+            end
             
         end
         

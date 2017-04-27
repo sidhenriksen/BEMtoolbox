@@ -1,8 +1,8 @@
  function C = simulate_spatial(bem,generator,n_frames,bootstrap_mode,run_parallel,seed)
+    % C = bem.simulate_spatial(generator,<n_frames>,<bootstrap_mode>,<run_parallel>,<seed_list>);    
+    %
     % Computes the spatial response of a BEMunit object to a sequence of
     % stimuli created the generator object.
-    %
-    % Usage: C = bem.simulate_spatial(generator,<n_frames>,<bootstrap_mode>,<seed_list>);    
     % generator: Stimulus generator object  
     % n_frames (optional): number of frames. Default is 1.    
     % bootstrap_mode (optional): Whether to save responses to disk to use for
@@ -10,7 +10,21 @@
     % simulate_spatiotemporal). Default is 0 (off).   
     % seed_list (optional): A list of seeds used before creating the
     % stimuli. This can be useful if you need to recreate an exact stimulus
-    % sequence.    
+    % sequence.
+    
+    if isnumeric(generator);
+        S = zeros(size(generator,1),1);
+        for k = 1:length(bem.subunits);
+            
+            B = [bem.subunits(k).L(:);bem.subunits(k).R(:)];
+            
+            S = S+bem.subunits(k).NL(generator*B);
+           
+        end        
+        
+        C = S;
+        return;
+    end
 
     assert((bem.Nx == generator.Nx) && (bem.Ny == generator.Ny),'Error: BEMunit and generator object dimensions must be equal.');
     
@@ -74,6 +88,8 @@
 
         if n_frames > 0
             S = zeros(bem.n_subunits,n_frames); % subunit responses
+            Ls = zeros(bem.n_subunits,n_frames);
+            Rs = zeros(bem.n_subunits,n_frames);
             I_Ls = zeros(bem.Nx*bem.Ny,n_frames);
             I_Rs = zeros(bem.Nx*bem.Ny,n_frames);
 
@@ -117,19 +133,55 @@
                 bem.subunits(k).V_L = L';
                 bem.subunits(k).V_R = R';
             end
-
-
+          
             % add L and R, and pass through nonlinearity
-            S(k,:) = bem.subunits(k).NL(L+R);                     
+            Ls(k,:) = L;
+            Rs(k,:) = R;
+            
         end
         
+        if bem.norm_params(1)
+            norm_Ls = zeros(size(Ls));
+            norm_Rs = zeros(size(Rs));
+            for k = 1:bem.n_subunits;            
+                % Find the appropriate indices for this cell (to make a
+                % monocular complex cell)
+                idx = find([bem.quad_pairs{:}] == k);
+                current_idx = floor((idx+1)/2);
+                current_pair = bem.quad_pairs{current_idx};
+
+                
+                L_complex = sum(Ls(current_pair,:).^2);
+                R_complex = sum(Rs(current_pair,:).^2);                
+
+                L_norm = 1./(1+bem.norm_params(1)*L_complex.^bem.norm_params(2));
+                R_norm = 1./(1+bem.norm_params(1)*R_complex.^bem.norm_params(2));
+
+                norm_Ls(k,:) = Ls(k,:).*L_norm;
+                norm_Rs(k,:) = Rs(k,:).*R_norm;
+                
+            end
+            Ls = norm_Ls;
+            Rs = norm_Rs;
+        end
+    
+    
+        for k = 1:bem.n_subunits;
+            S(k,:) = bem.subunits(k).NL(Ls(k,:)+Rs(k,:))*bem.subunits(k).weight;
+        end
+
+    
         % Add together simple cell response to get complex response C
-        C = sum(S);
+        if bem.n_subunits > 1
+            C = sum(S);
+        else
+            C = S;
+        end
     end    
     
     % create a dummy generator with corr=1 and dx=pref dx in order to 
     % scale responses
-    dummy_generator = generator; 
+    dummy_generator = generator.copy(); 
     dummy_generator.correlation = 1;
     dummy_generator.dx = round(bem.dx/bem.deg_per_pixel);
     % This will see if there is a pre-computed normalisation term.
@@ -145,12 +197,11 @@
     
     % Pass through output nonlinearity before returning
     % Have to do this because of some backwards compatibility issues
-    if isprop(bem,'outputNL');
+    if isprop(bem,'outputNL')
         C = bem.outputNL(C)./norm_constant;
     else
         C = C./norm_constant;
     end
-    
     
     
     if bootstrap_mode && n_frames > 0

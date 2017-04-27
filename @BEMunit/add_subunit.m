@@ -1,4 +1,4 @@
-function bem = add_subunit(bem,varargin)
+function varargout = add_subunit(bem,varargin)
     % Add a new binocular subunit to the model
     % Usage: bem = bem.add_subunit(<params>)
     % Example:
@@ -146,8 +146,14 @@ function bem = add_subunit(bem,varargin)
     end
 
     bem.subunits(sub_k).NL = @(x)(x.^2);
+    
+    bem.subunits(sub_k).weight = 1;
 
     bem.subunits(sub_k).rf_params = rf;
     
-    bem = bem.update();
+    bem.update();
+    
+    if nargout
+        varargout = {bem};
+    end
 end

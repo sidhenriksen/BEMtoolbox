@@ -7,7 +7,7 @@
 % Please email me with any bugs or suggestions.
 %
 % All code released under GNU GPL v2
-classdef BEMunit
+classdef BEMunit < handle
     properties
         
         % spatial dimensions; valid is 1d and 2d
@@ -33,6 +33,9 @@ classdef BEMunit
         
         temporal_kernel='none';
         tk=struct('tau',[],'omega',[],'alpha',[],'t_phi',[],'t0',[]);
+                
+        norm_params = [0,1]; % this is 
+        quad_pairs = {[1,2]}; %which cells form a quadrature pair ([1,2] is default in energy model)
         
 
         silent = 0;
@@ -131,34 +134,55 @@ classdef BEMunit
                 ytk = linspace(min(bem.y),max(bem.y),5);
                 clims = zeros(2*bem.n_subunits,2);
                 
+                s = linspace(-1,1,501);
+                
                 for j = 1:bem.n_subunits;
-                    subplot(bem.n_subunits,2,(j-1)*2+1);
+                    sub_idx = (j-1)*3 + 1;
+                    subplot(bem.n_subunits,3,sub_idx);
                     imagesc(bem.x,bem.y,bem.subunits(j).L);
                     title(sprintf('Subunit %i: Left eye',j),'fontsize',14);
-                    if j == 2;
-                        xlabel('Horizontal position (deg)');
+                    if j == bem.n_subunits;
+                        xlabel('Horizontal position (deg)');                    
                     end
+                    
+            
                     ylabel('Vertical position (deg)');
                     set(gca,'xtick',xtk,'ytick',ytk);
                     clims((j-1)*2+1,:)=get(gca,'clim');
 
-                    subplot(bem.n_subunits,2,j*2)
+                    subplot(bem.n_subunits,3,sub_idx+1)
                     imagesc(bem.x,bem.y,bem.subunits(j).R);
                     title(sprintf('Subunit %i: Right eye',j),'fontsize',14);
                     
-                    if j == 2;
+                    if j == bem.n_subunits;
                         xlabel('Horizontal position (deg)');
                     end
                     
-                    ylabel('Vertical position (deg)');
+                    
                     set(gca,'xtick',xtk,'ytick',ytk);
+                    
+                    subplot(bem.n_subunits,3,sub_idx+2);
+                    plot(s,bem.subunits(j).NL(s),'k -','linewidth',2);
+                    
+                    if j == bem.n_subunits
+                        xlabel('(L+R)');
+                    end
+                    title('Subunit nonlinearity','fontsize',14)                    
+                                        
+                    ylabel('Output');
+                    xlim([-1,1]);
+                    
                 end
                 
                 
-                for j = 1:(bem.n_subunits*2);
-                    subplot(bem.n_subunits,2,j);
+                for j = 1:(bem.n_subunits);
+                    sub_idx = (j-1)*3 +1;
+                    subplot(bem.n_subunits,3,sub_idx);
+                    set(gca,'clim',[min(clims(:)),max(clims(:))]);
+                    subplot(bem.n_subunits,3,sub_idx+1);
                     set(gca,'clim',[min(clims(:)),max(clims(:))]);
                 end
+                set(gcf,'position',[200,200,1000,600]);                
                 
                 if plot_kernels && ~strcmp(bem.temporal_kernel,'none');
                     figure();
@@ -199,7 +223,7 @@ classdef BEMunit
         
         
         
-        function bem = rescale(bem,scale)
+        function varargout = rescale(bem,scale)
             
             for j = 1:length(bem.subunits);
                 
@@ -212,7 +236,12 @@ classdef BEMunit
                 bem.subunits(j).rf_params.right.f=bem.subunits(j).rf_params.right.f/scale;
                 
             end
-            bem = bem.update();
+            bem.update();
+            
+            if nargout
+                warning('Calling rescale with output arguments is deprecated.')
+                varargout = {bem};
+            end
         end
         
         function [cc_dx,ccf] = get_ccf(bem,k_sub)
@@ -304,6 +333,8 @@ classdef BEMunit
             rf_params_both.phi=0;
             % orientation of gabor
             rf_params_both.theta=0;
+            rf_params_both.x0=0;
+            rf_params_both.y0=0;
 
             % temporal properties of receptive field
             rf_params_both.temporal_kernel='gamma-cosine';
@@ -317,6 +348,7 @@ classdef BEMunit
             rf_params.dphi=0; %phase disparity
             rf_params.dx=0; %position disparity (horizontal)
             rf_params.dy=0; %position disparity (vertical)
+                        
 
             rf_params.left=rf_params_both;
             rf_params.right=rf_params_both;

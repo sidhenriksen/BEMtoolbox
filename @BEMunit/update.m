@@ -1,4 +1,4 @@
-function bem = update(bem)
+function varargout = update(bem)
     % Updates the bem_unit after changes have been made to RF
     % params
 
@@ -158,4 +158,8 @@ function bem = update(bem)
         bem.subunits(j).rf_params = rf;
     end
     bem.n_subunits = length(bem.subunits);
+    
+    if nargout
+        varargout = {bem};
+    end
 end
