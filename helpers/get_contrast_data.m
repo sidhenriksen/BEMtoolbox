@@ -1,13 +1,20 @@
-function contrastData = get_contrast_data(NimStruct)
+function contrastData = get_contrast_data(NimStruct,binocularKernel)
+
+    if nargin < 2
+        % or just set to empty
+        binocularKernel = kernel_optimisation(NimStruct,'genetic');
+                
+    end
+
 
     assert(isfield(NimStruct,'NimFit'),'get_contrast_data needs NimFit field to run')
 
 
     %%% Modifiable parameters %%%
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
-    
-    pSplit = 1/3; % contrast tertile split
-    
+        
+    optParams.pSplit = 1/3;    
+            
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
    
     
@@ -23,9 +30,10 @@ function contrastData = get_contrast_data(NimStruct)
     triggerOnce = 1;
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-    [lo,hi] = split_trials_by_contrast(NimStruct,pSplit);
+    
+    
+    
+    [lo,hi] = split_trials_by_contrast(NimStruct,binocularKernel,optParams);
 
     % this gets the tuning curves and variances using forward correlation
     [dx,tcLo,varLo] = run_forward_correlation(NimStruct,RUNDUR,WINDOWSIZE,LAG,triggerOnce,lo);
@@ -44,6 +52,8 @@ function contrastData = get_contrast_data(NimStruct)
     contrastData.varianceLowContrast = varLo;
     
     contrastData.varianceHighContrast = varHi;
+    
+    contrastData.contrastKernel = binocularKernel;
 
 
 

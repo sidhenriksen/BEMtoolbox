@@ -27,11 +27,11 @@ function [runDxs,tc,vars,allResps] = run_forward_correlation(NimStruct,runDur,wi
     end
     
     if nargin < 3
-        windowSize = 15;
+        windowSize = 3;
     end
     
     if nargin < 4
-        lag = 0;
+        lag = 4;
     end
     
     if nargin < 5
@@ -40,6 +40,11 @@ function [runDxs,tc,vars,allResps] = run_forward_correlation(NimStruct,runDur,wi
     
     if nargin < 6
         trialMask = ones(size(NimStruct.dxs));
+    end
+    
+    if isfield(NimStruct,'tMaxVar')
+        lag = max(1,NimStruct.tMaxVar-1);
+        windowSize = 3;
     end
     
     trialMask = ascolumn(trialMask)';
@@ -61,14 +66,15 @@ function [runDxs,tc,vars,allResps] = run_forward_correlation(NimStruct,runDur,wi
         
     % initialise arrays
     tc = zeros(length(runCorrs),length(runDxs));
+    
     vars = zeros(length(runCorrs),length(runDxs));
+    
     allResps = cell(length(runCorrs),length(runDxs));
     
-    for j = 1:length(runDxs);
-        for i = 1:length(runCorrs);
+    for j = 1:length(runDxs)
+        for i = 1:length(runCorrs)
             
-            if runCorrs(i) ~= 0;
-                
+            if runCorrs(i) ~= 0
                 currentFrames = find((runDxs(j) == dxs) .* (corrs==runCorrs(i)).* (runDur == durs) .* ...
                     trialMask);
             else
@@ -79,24 +85,10 @@ function [runDxs,tc,vars,allResps] = run_forward_correlation(NimStruct,runDur,wi
                 currentFrames = remove_duplicates(currentFrames,runDur/10);
             end
 
-            resps = zeros(1,length(currentFrames));
-            
-            for k = 1:length(currentFrames);
-                start = currentFrames(k)+lag;
-                stop = min([start+windowSize-1,length(dxs)]);
-
-                R = zeros(windowSize,1);
-
-                
-                R(1:length(start:stop)) = rObs(start:stop);
-
-                resps(k) = sum(rObs(start:stop));
-
-            end
+            resps = get_spike_counts(rObs,currentFrames,lag,windowSize);
 
             tc(i,j) = mean(resps);
             vars(i,j) = var(resps);
-            
             allResps{i,j} = resps;
         end
     end
@@ -114,6 +106,6 @@ function [runDxs,tc,vars,allResps] = run_forward_correlation(NimStruct,runDur,wi
 end
 
 function runDxs = get_disparities(NimStruct)
-    runDxs = round(unique(NimStruct.dxs),3);   
+    runDxs = unique(round(NimStruct.dxs,3));
     runDxs = runDxs(abs(runDxs) < 1e3);
 end

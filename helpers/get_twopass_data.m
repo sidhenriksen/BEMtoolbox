@@ -7,13 +7,13 @@ function twopassData = get_twopass_data(NimStruct)
     
     RUNDUR = 30;
         
-    LAG = 3;
+    LAG = 4;
     
-    WINDOWSIZE = 4;
+    WINDOWSIZE = 3;
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%        
     
-    [Vint,Vtotal,tc,sqrtMeans,sqrtVars] = run_2pass(NimStruct,RUNDUR,WINDOWSIZE,LAG);
+    [Vtotal,Vint,tc,sqrtMeans,sqrtVars] = run_2pass(NimStruct,RUNDUR,WINDOWSIZE,LAG);
 
 
     twopassData.internalVariance = Vint;

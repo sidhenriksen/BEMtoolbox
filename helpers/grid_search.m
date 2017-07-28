@@ -1,4 +1,4 @@
-function [nExc,nInh] = grid_search(NimCell)
+function [nExc,nInh] = grid_search(NimCell,optStruct)
    % Do exhaustive grid search on many combinations of inhibitory and
    % excitatory subunits.
    % Usage:
@@ -11,16 +11,29 @@ function [nExc,nInh] = grid_search(NimCell)
     
     nExcs = 1:8;
     
-    nInh = 0:5;        
+    nInhs = 0:5;
+    
+    silent = 0;
+    
+    if nargin > 1
+        
+        unpackStruct(optStruct);
+        
+    end
 
-    paramGrid = CombVec(nExcs,nInh)';
+    try
+        paramGrid = CombVec(nExcs,nInhs)';
+    catch 
+        paramGrid = combvec(nExcs,nInhs)';  
+    end
+
     
     optStruct.pTrain = 0.75; % proportion of data used for training set    
     optStruct.silent = 1;
         
-    LLs = zeros(size(paramGrid,1),nRepeats); % log likelihoods    
-        
-    for k = 1:size(paramGrid,1);
+    LLs = zeros(size(paramGrid,1),nRepeats); % log likelihoods        
+
+    for k = 1:size(paramGrid,1)
         
         params = paramGrid(k,:);
         
@@ -28,8 +41,11 @@ function [nExc,nInh] = grid_search(NimCell)
         
         nInh = params(2);
         
-        fprintf('Running params: nExh=%i, nInh=%i\n',nExc,nInh);
-        for j = 1:nRepeats;
+        if ~silent
+            fprintf('Running params: nExh=%i, nInh=%i\n',nExc,nInh);
+        end
+        
+        for j = 1:nRepeats
             
             % returns cross-validated log likelihood            
             [~,LLCv] = fit_NimModel(NimCell,nExc,nInh,optStruct);
@@ -37,6 +53,7 @@ function [nExc,nInh] = grid_search(NimCell)
             LLs(k,j) = LLCv;
             
         end
+            
                 
     end
     

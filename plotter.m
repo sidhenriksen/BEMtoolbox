@@ -11,7 +11,7 @@ function plotter(dataDir)
     
     myFig = init_figure(dataDir);
 
-    populate_plot(myFig,[],'DDI','Cell');
+    populate_plot(myFig,[],'AnticorrelatedSlope','Cell');
 
     set(gcf,'Color','White','windowbuttondownfcn',{@TC_callback});%,'windowkeypressfcn',{@keydown_callback});
 
@@ -38,8 +38,8 @@ function myFig = init_figure(dataDir)
     
     
     % Set the x and y axis data
-    setappdata(myFig,'xdata','DDI');
-    setappdata(myFig,'ydata','DDI');
+    setappdata(myFig,'xdata','AnticorrelatedSlope');
+    setappdata(myFig,'ydata','AnticorrelatedSlope');
     setappdata(myFig,'xCellOrModel','Model');
     setappdata(myFig,'yCellOrModel','Cell');
     setappdata(myFig,'EqualAxes',0);
@@ -172,7 +172,8 @@ function plot_data(myFig)
         % to plot on the x and y axes.
 
         DDIKey = {'Cell',cell,[]};
-        currentDDI = compute_DDI_local(allData,DDIKey);
+        %currentDDI = compute_DDI_local(allData,DDIKey);
+        currentDDI = 0.3;
         
         xKey = {xCellOrModel,cell,xtype};
         
@@ -182,13 +183,13 @@ function plot_data(myFig)
 
         y = get_data(allData,yKey);
                 
-        tcCell = allData.cellData(cell).twopassSpikeCount;
+        tcCell = allData.cellData(cell).spikeCount;
         
-        tcModel = allData.modelData(cell).twopassSpikeCount;
+        tcModel = allData.modelData(cell).spikeCount;
         
         r = compute_r(tcCell,tcModel);
         
-        if r^2 < 0.0
+        if r^2 < 0.4
             continue
         end
         
@@ -245,7 +246,11 @@ function x = get_data(allData,key)
         
     elseif strcmp(cellOrModel,'Model')
         
-        currentData = allData.modelData(cellNumber);            
+        currentData = allData.modelData(cellNumber);
+        
+    elseif strcmp(cellOrModel,'BEM')
+        
+        currentData = allData.bemData(cellNumber);
         
     elseif strcmp(cellOrModel,'Compare')
         
@@ -258,38 +263,43 @@ function x = get_data(allData,key)
     switch type
         
         case 'TCSlope'
-            [~,x] = regression2(strip_uc(modelData.twopassSpikeCount), strip_uc(cellData.twopassSpikeCount));
+            lambda = sum(strip_uc(modelData.variance)) / sum(strip_uc(cellData.variance));
+            [~,x] = type2_regression(strip_uc(modelData.spikeCount),strip_uc(cellData.spikeCount),lambda);
             
         case 'CorrelatedTCSlope'
-            [~,x] = regression2(modelData.twopassSpikeCount(3,:), cellData.twopassSpikeCount(3,:));
+            lambda = 1;
+            [~,x] = type2_regression(cellData.spikeCount(3,:),modelData.spikeCount(3,:),lambda);
             
             
         case 'AnticorrelatedTCSlope'
-            [~,x] = regression2(modelData.twopassSpikeCount(1,:), cellData.twopassSpikeCount(1,:));
+            lambda = 1;
+            [~,x] = type2_regression(cellData.spikeCount(1,:),modelData.spikeCount(1,:),lambda);
             
         case 'TCR'    
-        	x = regression2(strip_uc(modelData.twopassSpikeCount), strip_uc(cellData.twopassSpikeCount));
+            lambda = 1;
+        	x = type2_regression(strip_uc(cellData.spikeCount),strip_uc(modelData.spikeCount),lambda);
             
         case 'CorrelatedTCR'
-            x = regression2(modelData.twopassSpikeCount(3,:), cellData.twopassSpikeCount(3,:));            
+            lambda = 1;
+            x = type2_regression(cellData.spikeCount(3,:),modelData.spikeCount(3,:),lambda);
             
         case 'AnticorrelatedTCR'
-            x = regression2(modelData.twopassSpikeCount(1,:), cellData.twopassSpikeCount(1,:));
+            lambda = 1;
+            x = type2_regression(cellData.spikeCount(1,:),modelData.spikeCount(1,:),lambda);
                 
         case 'AnticorrelatedSlope'
-            acResponse = currentData.twopassSpikeCount(1,:);
-            cResponse = currentData.twopassSpikeCount(3,:);
-            
-            [~,x] = regression2(acResponse,cResponse); % slope
+            acResponse = currentData.spikeCount(1,:);
+            cResponse = currentData.spikeCount(3,:);
+            lambda = 1;
+            [~,x] = type2_regression(cResponse,acResponse,lambda); % slope
             
             
         case 'AnticorrelatedR'
-            acResponse = currentData.twopassSpikeCount(1,:);
-            cResponse = currentData.twopassSpikeCount(3,:);
-            
-            x = regression2(acResponse,cResponse); % r
-            
-            
+            acResponse = currentData.spikeCount(1,:);
+            cResponse = currentData.spikeCount(3,:);
+            lambda = 1;
+            x = type2_regression(cResponse,acResponse,lambda);
+
             
         case 'LowContrastFanoFactor'
 
@@ -332,82 +342,12 @@ function x = get_data(allData,key)
             currentFF = currentVar./currentSC;
             x = regression2(currentFF,currentSC);
             
-        case 'TwopassInternalVariance'
-            x = mean(strip_uc(currentData.internalVariance));
-            
-        case 'TwopassExternalVariance'
-            internalVariance = strip_uc(currentData.internalVariance);
-            totalVariance = strip_uc(currentData.totalVariance);
-            x = mean(totalVariance-internalVariance);
-                        
-        case 'TwopassTotalVariance'
-            x = mean(strip_uc(currentData.totalVariance));
-            
-        case 'TwopassInternalFanoFactor'
-            internalVariance = strip_uc(currentData.internalVariance);
-            spikeCount = strip_uc(currentData.twopassSpikeCount);
-            x = mean(internalVariance)./mean(spikeCount);
-            %x = mean(internalVariance./spikeCount);
-            % not sure if this should be ratio of the means or the mean of the ratios            
-            
-        case 'TwopassExternalFanoFactor'
-            internalVariance = strip_uc(currentData.internalVariance);
-            totalVariance = strip_uc(currentData.totalVariance);
-            externalVariance = totalVariance-internalVariance;
-            spikeCount = strip_uc(currentData.twopassSpikeCount);
-            %x = mean(externalVariance./spikeCount);
-            x = mean(externalVariance)./mean(spikeCount);
-            
-        case 'TwopassTotalFanoFactor'
-            totalVariance = strip_uc(currentData.totalVariance);
-            spikeCount = strip_uc(currentData.twopassSpikeCount);
-            %x = mean(totalVariance./spikeCount);
-            x = mean(totalVariance)./mean(spikeCount);
-            
-        case 'TwopassTotalSCFFSlope'
-            totalVariance = strip_uc(currentData.totalVariance);
-            spikeCount = strip_uc(currentData.twopassSpikeCount);
-            FF = totalVariance./spikeCount;
-            [~,x] = regression2(FF,spikeCount);
-            
-        case 'TwopassTotalSCFFr'
-            totalVariance = strip_uc(currentData.totalVariance);
-            spikeCount = strip_uc(currentData.twopassSpikeCount);
-            FF = totalVariance./spikeCount;
-            x = regression2(FF,spikeCount);
-            
-                        
-        case 'TwopassBrennyFactorPrefDisp'
-            totalVariance = strip_uc(currentData.totalVariance);
-            internalVariance = strip_uc(currentData.internalVariance);
-            externalVariance = totalVariance - internalVariance;
-            spikeCount = strip_uc(currentData.twopassSpikeCount);
-            
-            [~,prefDispIdx] = max(spikeCount);
-            
-            x = mean(externalVariance(prefDispIdx))./(mean(spikeCount(prefDispIdx)).^2);   
-            
-        case 'TwopassBrennyFactor'
-            totalVariance = strip_uc(currentData.totalVariance);
-            internalVariance = strip_uc(currentData.internalVariance);
-            externalVariance = totalVariance - internalVariance;
-            spikeCount = strip_uc(currentData.twopassSpikeCount);
-            %x = mean(externalVariance)./(mean(spikeCount).^2);
-            x = mean(externalVariance./spikeCount.^2);
-            
-         case 'TwopassExternalSCBFSlope'
-            totalVariance = strip_uc(currentData.totalVariance);
-            internalVariance = strip_uc(currentData.internalVariance);
-            externalVariance = totalVariance - internalVariance;
-            spikeCount = strip_uc(currentData.twopassSpikeCount);
-            [~,x] = regression2(externalVariance,spikeCount.^2);
-            
         case 'DDI'
-            totalVariance = strip_uc(currentData.totalVariance);
-            spikeCount = strip_uc(currentData.twopassSpikeCount);
+            variance = strip_uc(currentData.variance);
+            spikeCount = strip_uc(currentData.spikeCount);
             rMax = max(spikeCount);
             rMin = min(spikeCount);
-            RMSerror = sqrt(mean(totalVariance));
+            RMSerror = sqrt(mean(variance));
             x = (rMax-rMin)/(rMax-rMin + 2*RMSerror);
             
         case 'LoHiSlope'
@@ -421,17 +361,13 @@ function x = get_data(allData,key)
             x = regression2(lo,hi);
             
         case 'MeanSpikeCount'
-            x = mean(strip_uc(currentData.twopassSpikeCount));
-           
-        case 'ProportionInternalVariance'
-            internalVariance = strip_uc(currentData.internalVariance);
-            totalVariance =  strip_uc(currentData.totalVariance);
-            x = sum(internalVariance)/sum(totalVariance);
+            x = mean(strip_uc(currentData.spikeCount));
+
+        case 'GaussianACSlope'
+            acCount = currentData.bgnSpikeCount(1,:);
+            cCount =  currentData.bgnSpikeCount(3,:);
             
-        case 'ProportionExternalVariance'
-            internalVariance = strip_uc(currentData.internalVariance);
-            totalVariance =  strip_uc(currentData.totalVariance);
-            x = sum(totalVariance-internalVariance)/sum(totalVariance);
+            [~,x] = regression2(acCount,cCount);
             
 
             
@@ -469,7 +405,7 @@ function TC_callback(myFig,evt,dataType)
         
         setappdata(figData.TCHandle,'PseudoParent',myFig);
         
-        setappdata(figData.TCHandle,'Plotting','TwopassSpikeCount');
+        setappdata(figData.TCHandle,'Plotting','spikeCount');
         
         tcMenus = generate_tc_menus(figData.TCHandle);
         
@@ -605,31 +541,31 @@ function x = get_tc_data(allData,key)
             x = currentData.varianceHighContrast ./ ...
                 currentData.spikeCountHighContrast;
                     
-        case 'TwopassSpikeCount'
-            x = currentData.twopassSpikeCount;
+        case 'spikeCount'
+            x = currentData.spikeCount;
             
         case 'InternalVariance'
             x = currentData.internalVariance;
             
         case 'ExternalVariance'
-            x = currentData.totalVariance - currentData.internalVariance;
+            x = -(currentData.variance - currentData.internalVariance);
             
-        case 'TotalVariance'
-            x = currentData.totalVariance;
+        case 'variance'
+            x = currentData.variance;
             
         case 'InternalFanoFactor'
             x = currentData.internalVariance ./ ...
-                currentData.twopassSpikeCount;
+                currentData.spikeCount;
             
         case 'ExternalFanoFactor'
-            externalVariance = currentData.totalVariance- currentData.internalVariance;
-            x = externalVariance ./ currentData.twopassSpikeCount;
+            externalVariance = currentData.variance- currentData.internalVariance;
+            x = externalVariance ./ currentData.spikeCount;
             
         case 'TotalFanoFactor'
-            x = currentData.totalVariance./currentData.twopassSpikeCount;
+            x = currentData.variance./currentData.spikeCount;
                         
         case 'ExternalSD'
-            x = sqrt(currentData.totalVariance-currentData.internalVariance);
+            x = sqrt(currentData.variance-currentData.internalVariance);
             
 
     end
@@ -677,8 +613,8 @@ end
 
 function label = get_label(type,cellOrModel)
 
-    expt = {'LowContrast','HighContrast','Twopass','DDI','LoHi','Mean','Proportion','Anticorrelated','Correlated'};
-    exptMatch = {'Low contrast','High contrast','Two-pass','DDI','Low-High contrast','Mean','Proportion','Anticorrelated','Correlated'};
+    expt = {'LowContrast','HighContrast','Twopass','DDI','LoHi','Mean','Proportion','Anticorrelated','Correlated','Gaussian'};
+    exptMatch = {'Low contrast','High contrast','Two-pass','DDI','Low-High contrast','Mean','Proportion','Anticorrelated','Correlated','Gaussian'};
     
     prop = {'TCSlope','TCR','FanoFactor','SCFFSlope','SCFFr','Variance','SpikeCount','Slope','R','BrennyFactor','SCBF'};
     propMatch = {'TC slope','TC r','FF','SC-FF slope','SC-FF r','Variance','spike count','slope','r','Brenny Factor','SC-BF'};
@@ -731,7 +667,7 @@ function DDI = compute_DDI_local(allData,key)
         currentData = allData.modelData(cellNumber);
     end
         
-    totalVariance = strip_uc(currentData.totalSqrtVariance);
+    variance = strip_uc(currentData.totalSqrtVariance);
     
     spikeCount = strip_uc(currentData.twopassSqrtSpikeCount);
     
@@ -739,7 +675,7 @@ function DDI = compute_DDI_local(allData,key)
     
     rMin = min(spikeCount);
     
-    RMSerror = sqrt(mean(totalVariance));
+    RMSerror = sqrt(mean(variance));
     
     DDI = (rMax-rMin)/(rMax-rMin + 2*RMSerror);
     
@@ -754,23 +690,25 @@ function allMenus = generate_menus()
     mh = uimenu(myFig,'Label','Plot');
     
     
-    xMain = uimenu(mh,'Label','x-axis');
-    xMenuModel = uimenu(mh,'Label','Model','UserData','x');    
+    xMain = uimenu(mh,'Label','x-axis');    
     xMenuCell= uimenu(mh,'Label','Cell','UserData','x');    
+    xMenuModel = uimenu(mh,'Label','GBEM','UserData','x');
+    xMenuBem = uimenu(mh,'Label','BEM','UserData','x');
     xMenuCompare= uimenu(mh,'Label','Cell v. Model','UserData','x');
     
     %seperator = uimenu(mh,'Label',sprintf('\n'));
     
-    yMain = uimenu(mh,'Label','y-axis','separator','on');    
-    yMenuModel = uimenu(mh,'Label','Model','UserData','y');    
+    yMain = uimenu(mh,'Label','y-axis','separator','on');        
     yMenuCell= uimenu(mh,'Label','Cell','UserData','y');
+    yMenuModel = uimenu(mh,'Label','GBEM','UserData','y');    
+    yMenuBem = uimenu(mh,'Label','BEM','UserData','y');    
     yMenuCompare = uimenu(mh,'Label','Cell v. Model','UserData','y');
     
-    uimenu(mh,'Label','Bruce I (slow)','separator','on','Callback',{@plot_bruce1});
+    %uimenu(mh,'Label','Bruce I (slow)','separator','on','Callback',{@plot_bruce1});
     
     
-    menus = {xMenuModel,xMenuCell,yMenuModel,yMenuCell,xMenuCompare,yMenuCompare};
-    callbackArgs = {'Model','Cell','Model','Cell','Compare','Compare'};
+    menus = {xMenuModel,xMenuCell,xMenuBem,yMenuModel,yMenuCell,yMenuBem,xMenuCompare,yMenuCompare};
+    callbackArgs = {'Model','Cell','BEM','Model','Cell','BEM','Compare','Compare'};
     
     
     
@@ -778,7 +716,7 @@ function allMenus = generate_menus()
     for k = 1:length(menus)
         
         
-        if any(strcmp(callbackArgs{k},{'Cell','Model'}))
+        if any(strcmp(callbackArgs{k},{'Cell','Model','BEM'}))
             
             subMenus(k).MenuAnticorrelatedSlope = uimenu(menus{k},'Label','Anticorrelated slope','checked','off','Callback',{@populate_plot, 'AnticorrelatedSlope',callbackArgs{k}});
             subMenus(k).MenuAnticorrelatedR = uimenu(menus{k},'Label','Anticorrelated r','checked','off','Callback',{@populate_plot, 'AnticorrelatedR',callbackArgs{k}});
@@ -793,28 +731,12 @@ function allMenus = generate_menus()
 
             subMenus(k).MenuLoHiSlope = uimenu(menus{k},'Label','Low-high contrast slope','checked','off','separator','on','callback',{@populate_plot,'LoHiSlope',callbackArgs{k}});
             subMenus(k).MenuLoHir = uimenu(menus{k},'Label','Low-high contrast r','checked','off','callback',{@populate_plot,'LoHiR',callbackArgs{k}});
-
-            subMenus(k).MenuTwopassInternalFanoFactor = uimenu(menus{k},'Label','2P internal Fano Factor','Checked','off','separator','on','Callback',{@populate_plot,'TwopassInternalFanoFactor',callbackArgs{k}});
-            subMenus(k).MenuTwopassExternalFanoFactor = uimenu(menus{k},'Label','2P external Fano Factor','Checked','off','Callback',{@populate_plot,'TwopassExternalFanoFactor',callbackArgs{k}});
-            subMenus(k).MenuTwopassTotalFanoFactor = uimenu(menus{k},'Label','2P total Fano Factor','Checked','off','Callback',{@populate_plot,'TwopassTotalFanoFactor',callbackArgs{k}});
-
-            subMenus(k).MenuTwopassInternalVariance = uimenu(menus{k},'Label','2P internal variance','Checked','off','separator','on','Callback',{@populate_plot,'TwopassInternalVariance',callbackArgs{k}});
-            subMenus(k).MenuTwopassExternalVariance = uimenu(menus{k},'Label','2P external variance','Checked','off','Callback',{@populate_plot,'TwopassExternalVariance',callbackArgs{k}});
-            subMenus(k).MenuTwopassTotalVariance = uimenu(menus{k},'Label','2P total variance','Checked','off','Callback',{@populate_plot,'TwopassTotalVariance',callbackArgs{k}});                
-
-            submenus(k).MenuTwopassProportionInternal = uimenu(menus{k},'Label','2P proportion internal variance','Checked','off','separator','on','Callback',{@populate_plot,'ProportionInternalVariance',callbackArgs{k}});
-            submenus(k).MenuTwopassProportionExternal = uimenu(menus{k},'Label','2P proportion external variance','Checked','off','Callback',{@populate_plot,'ProportionExternalVariance',callbackArgs{k}});
-
-            subMenus(k).MenuTwopassSCFFSlope = uimenu(menus{k},'Label','2P SC-FF slope','Checked','off','separator','on','Callback',{@populate_plot,'TwopassTotalSCFFSlope',callbackArgs{k}});
-            subMenus(k).MenuTwopassSCFFr = uimenu(menus{k},'Label','2P SC-FF r','Checked','off','Callback',{@populate_plot,'TwopassTotalSCFFr',callbackArgs{k}});
-
-            submenus(k).MenuTwopassBrennyFactor = uimenu(menus{k},'Label','Brenny Factor','Checked','off','separator','on','Callback',{@populate_plot,'TwopassBrennyFactor',callbackArgs{k}});
-            submenus(k).MenuTwopassBrennyFactorPrefDisp = uimenu(menus{k},'Label','Brenny Factor pref dx','Checked','off','separator','off','Callback',{@populate_plot,'TwopassBrennyFactorPrefDisp',callbackArgs{k}});
-
-            subMenus(k).MenuDDI = uimenu(menus{k},'Label','DDI','Checked','off','separator','on','Callback',{@populate_plot,'DDI',callbackArgs{k}});
-            subMenus(k).MenuMeanSpikeCount = uimenu(menus{k},'Label','Mean spike count','Checked','off','Callback',{@populate_plot,'MeanSpikeCount',callbackArgs{k}});
-
-            submenus(k).MenuTwopassSCBFSlope = uimenu(menus{k},'Label','SC-BF slope','Checked','off','separator','off','Callback',{@populate_plot,'TwopassExternalSCBFSlope',callbackArgs{k}});
+            
+            if strcmp(callbackArgs{k},'Model')
+               
+                uimenu(menus{k},'Label','Gaussian noise AC slope','checked', 'off','separator','on','Callback',{@populate_plot,'GaussianACSlope',callbackArgs{k}});
+                
+            end
 
         else
             subMenus2(k).MenuTCSlope = uimenu(menus{k},'Label','TC slope (all)','Checked','off','separator','off','Callback',{@populate_plot,'TCSlope',callbackArgs{k}});
@@ -848,17 +770,7 @@ function tcMenus = generate_tc_menus(myFig)
     highContrastVariance = uimenu(tcMenu,'Label','High contrast variance','Callback', {@TC_callback,'HighContrastVariance'});
     highContrastFanoFactor = uimenu(tcMenu,'Label','High contrast Fano Factor','Callback',{@TC_callback,'HighContrastFanoFactor'});
     
-    twopassSpikeCount = uimenu(tcMenu,'Label','Two-pass spike count','Callback',{@TC_callback,'TwopassSpikeCount'});
-    
-    twopassInternalVariance = uimenu(tcMenu,'Label','2P internal variance','Callback',{@TC_callback,'InternalVariance'});
-    twopassExternalVariance = uimenu(tcMenu,'Label','2P external variance','Callback',{@TC_callback,'ExternalVariance'});
-    twopassTotalVariance = uimenu(tcMenu,'Label','2P total variance','Callback',{@TC_callback,'TotalVariance'});
-    
-    twopassExternalSD = uimenu(tcMenu,'Label','2P external SD','Callback',{@TC_callback,'ExternalSD'});
-    
-    twopassInternalFanoFactor = uimenu(tcMenu,'Label','2P internal Fano Factor','Callback',{@TC_callback,'InternalFanoFactor'});
-    twopassExternalFanoFactor = uimenu(tcMenu,'Label','2P external Fano Factor','Callback',{@TC_callback,'ExternalFanoFactor'});
-    twopassTotalFanoFactor = uimenu(tcMenu,'Label','2P total Fano Factor','Callback',{@TC_callback,'TotalFanoFactor'});        
+    spikeCount = uimenu(tcMenu,'Label','Two-pass spike count','Callback',{@TC_callback,'spikeCount'});
     
     toggleLegendMenu = uimenu(myFig,'Label','Toggle legend','Callback',{@toggle_legend});
     
@@ -1071,13 +983,13 @@ function plot_bruce1(myFig,evt)
     
     for k = 1:length(modelData)
         
-        totalModelVariance = [totalModelVariance;strip_uc(modelData(k).totalVariance)];
+        totalModelVariance = [totalModelVariance;strip_uc(modelData(k).variance)];
         
-        modelSpikeCount = [modelSpikeCount;strip_uc(modelData(k).twopassSpikeCount)];
+        modelSpikeCount = [modelSpikeCount;strip_uc(modelData(k).spikeCount)];
         
-        totalCellVariance = [totalCellVariance;strip_uc(cellData(k).totalVariance)];
+        totalCellVariance = [totalCellVariance;strip_uc(cellData(k).variance)];
         
-        cellSpikeCount = [cellSpikeCount;strip_uc(cellData(k).twopassSpikeCount)];
+        cellSpikeCount = [cellSpikeCount;strip_uc(cellData(k).spikeCount)];
     end
     
     modelFF = totalModelVariance./modelSpikeCount;

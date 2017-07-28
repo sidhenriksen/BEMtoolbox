@@ -7,7 +7,7 @@ function mergedStruct = merge_structs(struct1,struct2,varargin)
         
     assert(length(struct1)==length(struct2),'AssertionError: Lengths of the two structs must be the same');
         
-    mergedStruct = struct_merge(struct1,struct2);    
+        mergedStruct = struct_merge(struct1,struct2);    
     
     % call this recursively to merge all structs
     if nargin == 3

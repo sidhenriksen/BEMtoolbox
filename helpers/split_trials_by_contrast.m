@@ -60,8 +60,13 @@ function [lowIdx,highIdx] = split_trials_by_contrast(NimModel,binocularKernel,op
 %         idx = idx & ~flipidx;
 %         
      else
-         NimModel.stim = NimModel.stimTrain;
-         idx = NimModel.indexTrain;
+         if isfield(NimModel,'stimTrain');
+            NimModel.stim = NimModel.stimTrain;
+            idx = NimModel.indexTrain;
+         else
+             idx = (NimModel.duration == 30);
+             NimModel.stim = NimModel.stim(idx,:);
+         end
 
 %         idx = idx & flipidx;
      end
@@ -73,7 +78,7 @@ function [lowIdx,highIdx] = split_trials_by_contrast(NimModel,binocularKernel,op
     elseif isempty(binocularKernel)
         RMS = compute_rms(NimModel);
     else
-        RMS = compute_rms(NimModel,binocularKernel);
+        RMS = compute_rms(NimModel,ascolumn(binocularKernel)');
     end
     
     % RMS2 is to account for the fact that we have used only a subsample

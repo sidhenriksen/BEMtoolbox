@@ -10,7 +10,8 @@ function NimCell = make_NimCell(AllStims,AllSpikes,cellNo)
     
     
     % Get the data for the current cell
-    currentData = AllSpikes(cellNo);
+    currentData = AllSpikes(cellNo);    
+    
     datafields = fields(currentData);
     for k = 1:length(datafields);
         df = datafields{k};
@@ -34,18 +35,53 @@ function NimCell = make_NimCell(AllStims,AllSpikes,cellNo)
     end
     nmin = min(Ns);
     
-    for j = 1:length(stimData);
-        stimData(j).L = stimData(j).L(1:NUM_FRAMES_PER_TRIAL,:);
-        stimData(j).R = stimData(j).R(1:NUM_FRAMES_PER_TRIAL,:);
-        stimData(j).contrast = stimData(j).contrast(1:NUM_FRAMES_PER_TRIAL,:);
+    % why do we even need to do this?
+    for j = 1:length(stimData) % first stimData has 298 frames
+        %dFrames = NUM_FRAMES_PER_TRIAL - size(stimData(j).L,1);
+            
+        %stimData(j).L = stimData(j).L(1:NUM_FRAMES_PER_TRIAL,:);
+        %stimData(j).R = stimData(j).R(1:NUM_FRAMES_PER_TRIAL,:);
+        %stimData(j).contrast = stimData(j).contrast(1:NUM_FRAMES_PER_TRIAL,:);
         
-        if size(stimData(j).L,2) > nmin;
+        if size(stimData(j).L,2) > nmin
             stimData(j).L = stimData(j).L(:,1:nmin);
             stimData(j).R = stimData(j).R(:,1:nmin);
         end
         
-        dxData{j} = round(convert_dx(dxData{j}),3);
-        corrData{j} = convert_dx(corrData{j});
+        if length(dxData{j}) < size(stimData(j).L,1)
+            patternRepeat= round(300/length(dxData{j}));
+                        
+            dx = repmat(dxData{j},[1,patternRepeat])'; dx = dx(:);
+            
+            sizeDiff = length(dx) - size(stimData(j).L,1);
+            if sizeDiff < 0
+                dx = [dx;ones(abs(sizeDiff),1)*dx(end)];
+            elseif sizeDiff == 0
+                dx = dx(1:size(stimData(j).L,1));
+            end
+            
+            dxData{j} = round(dx,patternRepeat);
+        end
+        
+        if length(corrData{j}) < size(stimData(j).L,1);
+            patternRepeat= round(300/length(corrData{j}));
+            
+            cor = repmat(corrData{j},[1,patternRepeat])'; cor = cor(:);
+                        
+            sizeDiff = length(cor) - size(stimData(j).L,1);
+            if sizeDiff < 0
+                cor = [cor;ones(abs(sizeDiff),1)*cor(end)];
+                
+            elseif sizeDiff ==0
+                cor = cor(1:size(stimData(j).L,1));
+
+            end
+            
+            corrData{j} = cor;
+        end
+        
+        dxData{j} = ascolumn(dxData{j})';
+        corrData{j} = ascolumn(corrData{j})';
     end
     
     
@@ -56,8 +92,8 @@ function NimCell = make_NimCell(AllStims,AllSpikes,cellNo)
     stim = [L,R];
     
     
-    dxs = [];    
-    corr = [];    
+    dxs = [];
+    corr = [];
     dur = [];
     
     
@@ -135,7 +171,7 @@ function NimCell = make_NimCell(AllStims,AllSpikes,cellNo)
     
     NimCell.stim = stim;
     NimCell.spiketimes = spiketimes;
-    NimCell.dxs = dxs;
+    NimCell.dxs = round(dxs,3);
     NimCell.times = times;
     NimCell.trials = trials;
     NimCell.correlation = corr;
@@ -163,5 +199,35 @@ function y = convert_dx(x)
     else
         y = x;
     end
+
+end
+
+function data = extend_fields(data,k)
+
+        currentNFrames = size(data.L,1);
+        
+        dFrames = k-size(data.L,1);
+        % this just repeats the last three frames three times...
+        % we chop these off in the end anyway, so this is not an issue,
+        % but it's needed to make this whole thing behave sensibly
+        L = zeros(size(data.L)+[dFrames,0]);
+        R = zeros(size(data.R)+[dFrames,0]);
+        contrast = zeros(size(data.contrast)+[dFrames,0]);
+
+        L(1:currentNFrames,:) = data.L; 
+        L((end-dFrames+1):end,:) = repmat(L((end-dFrames),:),[dFrames,1]);
+
+        R(1:currentNFrames,:) = data.R; 
+        R((end-dFrames+1):end,:) = repmat(R((end-dFrames),:),[dFrames,1]);
+
+        contrast(1:currentNFrames,:) = data.contrast;
+        contrast( (end-dFrames+1):end,:) = repmat(contrast(end-dFrames,:),[dFrames,1]);
+
+        data.L = L;
+        data.R = R;
+        data.contrast = contrast;
+        data.dx = [data.dx,repmat(data.dx(end),[1,dFrames])];
+        data.correlation = [data.correlation,repmat(data.correlation(end),[1,dFrames])];
+    
 
 end

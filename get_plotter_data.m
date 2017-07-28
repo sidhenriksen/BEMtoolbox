@@ -1,6 +1,14 @@
 function [allCell,allModel] = get_plotter_data(dataDir)
-    % Loads the data needed for the plotter
-        
+    % GET_PLOTTER_DATA   Loads the data needed for the plotter
+    % [allCell,allModel] = get_plotter_data(dataDir)
+    %
+    % Parameters
+    % ----------
+    % dataDir : optional     
+    %
+    % Returns
+    % allCell : struct with data
+    % allModel : --||--
     
     if ~nargin
         dataDir = get_data_dir();
@@ -21,7 +29,6 @@ function [allCell,allModel] = get_plotter_data(dataDir)
         contrastData(k).Cell = contrastCell;
 
         contrastData(k).Model = contrastModel;
-                
 
         twopassData(k).Cell = twopassCell;        
 
@@ -31,6 +38,11 @@ function [allCell,allModel] = get_plotter_data(dataDir)
         
         twopassData(k).Cell.fileName = fileName;
         twopassData(k).Model.fileName = fileName;
+        
+        twopassData(k).Cell.bgnSpikeCount = bgnCell.bgnSpikeCount;
+        twopassData(k).Model.bgnSpikeCount = bgnModel.bgnSpikeCount;
+        
+        %contrastData(k).
 
     end
         
@@ -59,9 +71,19 @@ function [allCell,allModel] = custom_merge_structs(twopassData,contrastData);
         
         
     for k = 1:length(twopassData);
+        
+        if ~isfield(contrastData(k).Cell,'contrastKernel')
+                    
+            contrastData(k).Cell.contrastKernel = [];
+                    
+        end
+        
+        contrastData(k).Model.contrastKernel = contrastData(k).Cell.contrastKernel;
+        
+        
         cellData = merge_structs(twopassData(k).Cell,contrastData(k).Cell);
-        modelData = merge_structs(twopassData(k).Model,contrastData(k).Model);                
-            
+        modelData = merge_structs(twopassData(k).Model,contrastData(k).Model);
+                        
         allCell(k) = cellData;
         allModel(k) = modelData;
     end

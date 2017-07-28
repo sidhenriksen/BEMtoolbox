@@ -1,4 +1,4 @@
-function [NimModel,LLCv] = fit_NimModel(NimCell,n_exc,n_inh,optStruct)
+function [NimModel,LLCv,LLTrain] = fit_NimModel(NimCell,nExc,nInh,optStruct)
     % fit_NImModel Fit a NIM model using a specifiec architecture.
     % Usage:
     % [NimModel,LL] = fit_NimModel(NimCell,n_exc,n_inh,optStruct)
@@ -33,8 +33,8 @@ function [NimModel,LLCv] = fit_NimModel(NimCell,n_exc,n_inh,optStruct)
     L1Lambda=1; % L1 norm regularisation
 
     
-    if nargin == 4;
-        % this can be used to override the previous files
+    if nargin == 4
+        % this can be used to override the previous parameters
         unpackStruct(optStruct);
     end    
     
@@ -58,9 +58,17 @@ function [NimModel,LLCv] = fit_NimModel(NimCell,n_exc,n_inh,optStruct)
         include = logical(include.*prop_mask);
     end
     
-    
-    [indexTrain,indexCv] = partition_data(times(include),pTrain);
+    if ~isfield(optStruct,'indexTrain')        
+        [indexTrain,indexCv] = partition_data(times(include),pTrain);
+    else
+        logicalIndex = zeros(1,length(include));
+        logicalIndex(optStruct.indexTrain) = 1;
+        logicalIndex(optStruct.indexCv) = 2;
+        logicalIndex = logicalIndex(include);
+        indexTrain = find(logicalIndex==1);
+        indexCv = find(logicalIndex==2);
         
+    end
     
     nPix = size(stim,2);
     
@@ -73,25 +81,28 @@ function [NimModel,LLCv] = fit_NimModel(NimCell,n_exc,n_inh,optStruct)
     rObs = rObsAll(include);
     
 
-    mod_signs = [ones(1,n_exc),ones(1,n_inh)*-1];
+    mod_signs = [ones(1,nExc),ones(1,nInh)*-1];
 
     
-    if strcmp(nlType,'quad');
+    if strcmp(nlType,'quad')
         % we need to add a linear subunit if we're using a quadratic model
-        nlTypes = ['lin',repmat({'quad'},[1,n_exc-1 + n_inh])];
+        %nlTypes = ['lin',repmat({'quad'},[1,nExc-1 + nInh])];
+        
+        nlTypes = repmat({nlType},[1,nExc + nInh]);
+        
         NimFit = NIM(params_stim,nlTypes,mod_signs,'spkNL',spkNL);            
         NimFit = NimFit.set_reg_params('d2xt',smoothLambda,'l1',L1Lambda);
         NimFit.stim_params.split_pts = [2, nPix/2, 0]; % sets boundary on 2nd dimension, at pixel nPix/2 (middle) and smooths to 0 at this boundary    
 
-        NimFit = NimFit.fit_filters(rObs,Xcell,index_train);
+        NimFit = NimFit.fit_filters(rObs,Xcell,indexTrain);
         NimFit.fit_history = [];
-        NimFit = NimFit.fit_spkNL(rObs,Xcell,index_train);
+        NimFit = NimFit.fit_spkNL(rObs,Xcell,indexTrain);
 
 
     elseif any(strcmp(nlType,{'rectpow','rectlin','lin','nonpar'}))
         % same as previous, just without adding the linear subunit
         
-        nlTypes = repmat({nlType},[1,n_exc + n_inh]); % sets subunit NL types
+        nlTypes = repmat({nlType},[1,nExc + nInh]); % sets subunit NL types
         
         offsets = ones(size(nlTypes)); % toggles threshold fitting
  
@@ -111,6 +122,7 @@ function [NimModel,LLCv] = fit_NimModel(NimCell,n_exc,n_inh,optStruct)
     end
 
     [~,rEst] = NimFit.eval_model(rObsAll,XcellAll);    
+    LLTrain = NimFit.eval_model(rObs,Xcell,indexTrain);
     LLCv = NimFit.eval_model(rObs,Xcell,indexCv);
     
     NimModel = NimCell;
